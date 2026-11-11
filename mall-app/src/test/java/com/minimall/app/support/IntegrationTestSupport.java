@@ -10,6 +10,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /** 每次测试进程使用独立容器，不连接开发数据库。 */
 @ActiveProfiles("test")
+@org.springframework.context.annotation.Import(MallFixtures.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationTestSupport {
     static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:8.4.13"));
