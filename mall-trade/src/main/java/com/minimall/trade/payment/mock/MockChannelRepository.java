@@ -57,6 +57,13 @@ public class MockChannelRepository {
         no);
   }
 
+  public void fail(String no) {
+    db.update(
+        "UPDATE mock_payment_transaction SET status='FAILED' WHERE payment_no=? AND status IN"
+            + " ('PENDING','FAILED')",
+        no);
+  }
+
   public void refundMode(String no, String mode) {
     db.update("UPDATE mock_payment_transaction SET refund_mode=? WHERE payment_no=?", mode, no);
   }

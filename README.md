@@ -109,6 +109,8 @@ docker compose stop
 
 售后审核或验收后进入 REFUNDING，轮询售后到 COMPLETED，并检查退款单 SUCCEEDED。只有渠道退款确认成功后才返库，已使用优惠券不返还。物流签收轨迹不会替用户确认收货。
 
+`POST /dev/v1/payments/{paymentNo}/failure` 模拟一次失败尝试，渠道记录 FAILED 并发送正常验签通知；订单仍待支付、库存继续占用。在有效期内重复获取原支付单参数，使用同一支付号调用 `/success` 可演示重试成功。成功或关闭终态不能改为失败。
+
 任务由 MySQL 表 `integration_task` 驱动：READY→RUNNING→DONE；租约过期可重领，旧租约不能提交；失败按 5/15/60/300/900 秒重试，继续失败转 MANUAL。未知渠道结果正常轮询不累计失败次数，连续等待 24 小时转 MANUAL。人工重试会重新计算等待期限，仍使用原业务号。
 
 | 现象 | 检查方法 |

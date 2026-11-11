@@ -56,14 +56,14 @@ public class CouponService {
   public CouponQuote quote(long member, Long coupon, long goods, Instant at) {
     if (goods < 0) throw BusinessException.bad("商品金额不合法");
     if (coupon == null) return new CouponQuote(null, 0);
-    return validate(repository.coupon(member, coupon, false), goods, at);
+    return validate(repository.coupon(member, coupon, false), goods, at, false);
   }
 
-  private CouponQuote validate(DbRow c, long goods, Instant at) {
+  private CouponQuote validate(DbRow c, long goods, Instant at, boolean lockTemplate) {
     if (!"AVAILABLE".equals(c.text("status"))
         || at.isBefore(c.instant("valid_from"))
         || !at.isBefore(c.instant("valid_until"))
-        || !repository.template(c.number("template_id"), false).flag("enabled"))
+        || !repository.template(c.number("template_id"), lockTemplate).flag("enabled"))
       throw BusinessException.conflict("优惠券当前不可使用");
     if (goods < c.number("threshold_fen")) throw BusinessException.conflict("未达到优惠券门槛");
     return new CouponQuote(c.number("id"), Math.min(goods, c.number("discount_fen")));
@@ -71,10 +71,14 @@ public class CouponService {
 
   @Transactional(propagation = Propagation.MANDATORY)
   public CouponQuote reserve(long member, long id, String no, long goods, Instant at) {
+    // 与领券保持模板在前、个人券在后的锁顺序。
+    var initial = repository.coupon(member, id, false);
+    repository.template(initial.number("template_id"), true);
     var c = repository.coupon(member, id, true);
     if ("RESERVED".equals(c.text("status")) && no.equals(c.text("order_no")))
       return new CouponQuote(id, Math.min(goods, c.number("discount_fen")));
-    var q = validate(c, goods, at);
+    // 预览可以普通读取，占用必须检查模板当前状态，防止旧快照忽略已经提交的停用。
+    var q = validate(c, goods, at, true);
     repository.reserve(id, no);
     repository.log(id, no, "RESERVE");
     return q;

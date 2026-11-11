@@ -55,6 +55,7 @@ public class QueryPaymentHandler implements TaskHandler {
       closer.finalizeClose(payment.text("order_no"), result);
       return TaskResult.done();
     }
+    if (result.status() == PaymentState.FAILED) outcomes.observe(result);
     var order = orders.byNo(payment.text("order_no"), false);
     if ("PENDING_PAYMENT".equals(order.text("status"))
         && !clock.instant().isBefore(order.instant("expires_at")))

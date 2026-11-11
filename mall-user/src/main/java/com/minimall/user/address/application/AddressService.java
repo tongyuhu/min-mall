@@ -54,6 +54,11 @@ public class AddressService {
     return snapshot(repository.owned(memberId, id));
   }
 
+  @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+  public AddressSnapshot lockSnapshot(long memberId, long id) {
+    return snapshot(repository.owned(memberId, id, true));
+  }
+
   private AddressSnapshot snapshot(DbRow r) {
     return new AddressSnapshot(
         r.text("receiver"),

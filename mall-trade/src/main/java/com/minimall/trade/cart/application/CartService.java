@@ -29,7 +29,7 @@ public class CartService {
       var r = previous.get();
       repository.update(r.number("id"), Checks.quantity(r.integer("quantity") + quantity), true);
     } else {
-      if (repository.list(member).size() >= 100) throw BusinessException.bad("购物车最多100项");
+      if (repository.list(member, true).size() >= 100) throw BusinessException.bad("购物车最多100项");
       repository.insert(member, sku, quantity);
     }
   }
@@ -38,14 +38,14 @@ public class CartService {
   public void update(long member, long id, int quantity, boolean selected) {
     Checks.quantity(quantity);
     repository.lock(member);
-    repository.owned(member, id);
+    repository.owned(member, id, true);
     repository.update(id, quantity, selected);
   }
 
   @Transactional
   public void remove(long member, long id) {
     repository.lock(member);
-    repository.owned(member, id);
+    repository.owned(member, id, true);
     repository.remove(id);
   }
 

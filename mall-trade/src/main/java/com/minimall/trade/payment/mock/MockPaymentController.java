@@ -38,7 +38,7 @@ public class MockPaymentController {
 
   @PostMapping("/{no}/failure")
   public PaymentResult failure(@PathVariable String no) {
-    return gateway.query(no);
+    return gateway.fail(no);
   }
 
   @PutMapping("/{no}/refund-mode")

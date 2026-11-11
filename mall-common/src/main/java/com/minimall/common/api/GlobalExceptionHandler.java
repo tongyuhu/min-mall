@@ -21,11 +21,22 @@ public class GlobalExceptionHandler {
   @ExceptionHandler({
     MethodArgumentNotValidException.class,
     HttpMessageNotReadableException.class,
+    org.springframework.web.bind.ServletRequestBindingException.class,
     IllegalArgumentException.class,
     org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class
   })
   public ResponseEntity<ApiError> invalid(Exception e) {
     return error(400, "INVALID_ARGUMENT", "请求参数不合法");
+  }
+
+  @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+  public ResponseEntity<ApiError> missingRoute(Exception e) {
+    return error(404, "NOT_FOUND", "接口或资源不存在");
+  }
+
+  @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ApiError> unsupportedMethod(Exception e) {
+    return error(405, "METHOD_NOT_ALLOWED", "请求方法不支持");
   }
 
   @ExceptionHandler(AccessDeniedException.class)

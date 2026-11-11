@@ -176,8 +176,8 @@ public class OrderRepository {
 
   public List<DbRow> expired(Instant now, int limit) {
     return db.rows(
-        "SELECT * FROM trade_order WHERE status='PENDING_PAYMENT' AND expires_at<=? ORDER BY"
-            + " expires_at,id LIMIT ?",
+        "SELECT * FROM trade_order WHERE status='PENDING_PAYMENT' AND close_requested=0 AND"
+            + " expires_at<=? ORDER BY expires_at,id LIMIT ?",
         now,
         limit);
   }

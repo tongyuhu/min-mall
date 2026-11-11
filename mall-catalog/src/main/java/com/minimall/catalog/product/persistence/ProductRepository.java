@@ -27,7 +27,16 @@ public class ProductRepository {
   }
 
   public List<String> images(long id) {
-    return db.rows("SELECT url FROM product_image WHERE spu_id=? ORDER BY position,id", id).stream()
+    return images(id, false);
+  }
+
+  public List<String> images(long id, boolean lock) {
+    return db
+        .rows(
+            "SELECT url FROM product_image WHERE spu_id=? ORDER BY position,id"
+                + (lock ? " FOR UPDATE" : ""),
+            id)
+        .stream()
         .map(r -> r.text("url"))
         .toList();
   }

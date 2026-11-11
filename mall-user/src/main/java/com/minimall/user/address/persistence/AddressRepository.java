@@ -18,7 +18,14 @@ public class AddressRepository {
   }
 
   public DbRow owned(long memberId, long id) {
-    return db.required("SELECT * FROM member_address WHERE member_id=? AND id=?", memberId, id);
+    return owned(memberId, id, false);
+  }
+
+  public DbRow owned(long memberId, long id, boolean lock) {
+    return db.required(
+        "SELECT * FROM member_address WHERE member_id=? AND id=?" + (lock ? " FOR UPDATE" : ""),
+        memberId,
+        id);
   }
 
   public List<DbRow> list(long memberId) {

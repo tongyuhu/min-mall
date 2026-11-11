@@ -18,15 +18,30 @@ public class CartRepository {
   }
 
   public List<DbRow> list(long member) {
-    return db.rows("SELECT * FROM cart_item WHERE member_id=? ORDER BY id", member);
+    return list(member, false);
+  }
+
+  public List<DbRow> list(long member, boolean lock) {
+    return db.rows(
+        "SELECT * FROM cart_item WHERE member_id=? ORDER BY id" + (lock ? " FOR UPDATE" : ""),
+        member);
   }
 
   public Optional<DbRow> bySku(long member, long sku) {
-    return db.first("SELECT * FROM cart_item WHERE member_id=? AND sku_id=?", member, sku);
+    // 写路径在 cart_owner 锁内调用，读取等待前一次提交后的最新数量。
+    return db.first(
+        "SELECT * FROM cart_item WHERE member_id=? AND sku_id=? FOR UPDATE", member, sku);
   }
 
   public DbRow owned(long member, long id) {
-    return db.required("SELECT * FROM cart_item WHERE member_id=? AND id=?", member, id);
+    return owned(member, id, false);
+  }
+
+  public DbRow owned(long member, long id, boolean lock) {
+    return db.required(
+        "SELECT * FROM cart_item WHERE member_id=? AND id=?" + (lock ? " FOR UPDATE" : ""),
+        member,
+        id);
   }
 
   public void insert(long member, long sku, int quantity) {

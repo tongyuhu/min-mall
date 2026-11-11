@@ -100,10 +100,9 @@ public class MockPaymentGateway implements PaymentGateway {
     var row = repository.payment(no, true).orElseThrow(BusinessException::missing);
     if (!anomaly) {
       Checks.state(
-          "PENDING".equals(row.text("status")) || "SUCCEEDED".equals(row.text("status")),
-          "渠道单已经关闭");
+          Set.of("PENDING", "FAILED", "SUCCEEDED").contains(row.text("status")), "渠道单已经关闭");
       if (!"SUCCEEDED".equals(row.text("status"))
-          && !clock.instant().isBefore(row.instant("expires_at")))
+          && clock.instant().isAfter(row.instant("expires_at")))
         throw BusinessException.conflict("支付已过期，请使用异常注入接口演示补偿");
     }
     Instant paidAt =
@@ -129,6 +128,29 @@ public class MockPaymentGateway implements PaymentGateway {
       tasks.enqueue("NOTIFY_PAYMENT", payment.notificationId() + ":" + i, json.write(envelope));
     }
     return result(row);
+  }
+
+  /** 一次支付尝试失败不会关闭有效支付单，后续仍可使用同一业务号付款。 */
+  @Transactional
+  public PaymentResult fail(String no) {
+    var row = repository.payment(no, true).orElseThrow(BusinessException::missing);
+    Checks.state(Set.of("PENDING", "FAILED").contains(row.text("status")), "成功或关闭的支付单不能改为失败");
+    repository.fail(no);
+    var payment =
+        new VerifiedPayment(
+            BusinessNumbers.next("N"),
+            merchant,
+            no,
+            row.text("channel_transaction_no"),
+            row.number("amount_fen"),
+            row.text("currency"),
+            null,
+            PaymentState.FAILED);
+    tasks.enqueue(
+        "NOTIFY_PAYMENT",
+        payment.notificationId() + ":0",
+        json.write(new NotificationEnvelope(payment, clock.instant(), 0)));
+    return result(repository.payment(no, false).orElseThrow());
   }
 
   public VerifiedPayment verify(byte[] rawBody, Map<String, String> headers) {

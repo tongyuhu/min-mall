@@ -71,7 +71,10 @@ public class CheckoutService {
   private CheckoutQuote quote(long member, CheckoutCommand c, boolean lock) {
     var ids = c.lines().stream().map(CheckoutLine::skuId).toList();
     var skus = lock ? catalog.lockSaleSkus(ids) : catalog.loadSaleSkus(ids);
-    var address = addresses.snapshot(member, c.addressId());
+    var address =
+        lock
+            ? addresses.lockSnapshot(member, c.addressId())
+            : addresses.snapshot(member, c.addressId());
     var lineAmounts = new ArrayList<Long>();
     long total = 0;
     try {

@@ -83,7 +83,7 @@ class MallJourneyIT extends IntegrationTestSupport {
     shipping.applyTracks(shipment.shipmentNo(), shippingGateway.query(shipment.shipmentNo()));
     shipping.confirmReceipt(buyer.memberId(), order.orderNo());
     var after = aftersales.apply(buyer.memberId(), order.orderNo(), "学习整单退货流程");
-    long admin = admins.create("a" + f.unique(), "learning-password", Set.of(1L));
+    long admin = admins.create("a" + f.unique(), "learning-password", Set.of(3L));
     var identity =
         new AccountIdentity(ActorType.ADMIN, admin, null, true, 0, Set.of("aftersale:review"));
     SecurityContextHolder.getContext()

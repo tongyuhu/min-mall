@@ -38,7 +38,7 @@ public class PaymentRepository {
     db.update(
         "UPDATE payment_order SET"
             + " pay_parameters_json=?,channel_transaction_no=COALESCE(channel_transaction_no,?)"
-            + " WHERE payment_no=? AND status IN ('PENDING','UNKNOWN')",
+            + " WHERE payment_no=? AND status IN ('PENDING','UNKNOWN','FAILED')",
         json.write(result.payParameters()),
         result.channelTransactionNo(),
         result.paymentNo());
@@ -57,6 +57,14 @@ public class PaymentRepository {
   public void closed(String no) {
     db.update(
         "UPDATE payment_order SET status='CLOSED' WHERE payment_no=? AND status<>'SUCCEEDED'", no);
+  }
+
+  public void failed(String no) {
+    // 失败只是一次尝试结果，迟到失败通知不得覆盖成功或关闭终态。
+    db.update(
+        "UPDATE payment_order SET status='FAILED',updated_at=CURRENT_TIMESTAMP(6) WHERE"
+            + " payment_no=? AND status IN ('PENDING','UNKNOWN','FAILED')",
+        no);
   }
 
   public Optional<DbRow> notification(String id) {

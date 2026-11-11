@@ -12,6 +12,17 @@
 @taskId = 替换为人工处理任务ID
 @shipmentNo = 替换为已受理运单业务号
 
+### 支付尝试失败：渠道记录 FAILED 并产生通知，订单保持待支付和库存占用
+POST {{baseUrl}}/dev/v1/payments/{{paymentNo}}/failure
+X-Dev-Key: {{devKey}}
+
+### 同一个未过期支付号可以再次付款，成功后迟到失败通知不能覆盖成功
+POST {{baseUrl}}/dev/v1/payments/{{paymentNo}}/success
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"copies":2,"delaySeconds":0,"failures":0}
+
 ### 在申请售后前设置退款渠道结果，FAIL 会走退避重试，PENDING/UNKNOWN 走查单
 PUT {{baseUrl}}/dev/v1/payments/{{paymentNo}}/refund-mode
 X-Dev-Key: {{devKey}}

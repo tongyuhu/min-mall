@@ -64,6 +64,11 @@ public class PaymentOutcomeService {
         throw BusinessException.conflict("通知编号内容冲突");
       return;
     }
+    if (p.status() == PaymentState.FAILED) {
+      payments.notification(p.notificationId(), p.paymentNo(), hash);
+      payments.failed(p.paymentNo());
+      return;
+    }
     if (p.status() != PaymentState.SUCCEEDED) return;
     if (p.paidAt() == null) {
       tasks.enqueue(
@@ -89,7 +94,7 @@ public class PaymentOutcomeService {
 
   @Transactional
   public void observe(PaymentResult result) {
-    if (result.status() != PaymentState.SUCCEEDED) return;
+    if (result.status() != PaymentState.SUCCEEDED && result.status() != PaymentState.FAILED) return;
     String id = "Q" + Digests.sha256(json.write(result)).substring(0, 40);
     apply(
         new VerifiedPayment(
