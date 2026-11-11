@@ -21,7 +21,7 @@ foreach ($source in $sources) {
     if ($content.Contains([char]0xFFFD)) { throw "编码错误：$($source.FullName)" }
     if ($content -match 'import com\.minimall\.(\w+)\..*\.persistence\.') {
         $owner = $Matches[1]
-        if ($source.FullName -notmatch "mall-$owner[\\/]" -and $source.FullName -notmatch '[\\/]src[\\/]test[\\/]') { throw "跨模块持久化引用：$($source.FullName)" }
+        if ($owner -ne 'common' -and $source.FullName -notmatch "mall-$owner[\\/]" -and $source.FullName -notmatch '[\\/]src[\\/]test[\\/]') { throw "跨模块持久化引用：$($source.FullName)" }
     }
 }
 git diff --check

@@ -1,0 +1,10 @@
+@baseUrl = http://localhost:18080
+
+### 健康状态（不包含环境信息）
+GET {{baseUrl}}/actuator/health
+
+### 接口定义（仅开发环境）
+GET {{baseUrl}}/v3/api-docs/买家
+
+# ID使用字符串，金额使用整数分，时间使用UTC ISO 8601。
+# 错误包含code、message、traceId、details。401重新登录，403无权限，409状态冲突，503依赖不可用。
