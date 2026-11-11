@@ -1,0 +1,5 @@
+mall:
+  simulation:
+    enabled: ${MALL_SIMULATION_ENABLED:false}
+  seed:
+    enabled: ${MALL_SEED_ENABLED:false}

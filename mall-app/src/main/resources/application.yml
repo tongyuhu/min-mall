@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:18080}
+spring:
+  application:
+    name: mini-mall
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:13306}/${MYSQL_DATABASE:mini_mall}?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8
+    username: ${MYSQL_USER:mall}
+    password: ${MYSQL_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+  flyway:
+    enabled: true
+    clean-disabled: true
+  jackson:
+    time-zone: UTC
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+mall:
+  simulation:
+    enabled: false
+    key: ${MALL_SIMULATION_KEY:}
+    merchant-id: mini-mall-local
+  jobs:
+    enabled: ${MALL_JOBS_ENABLED:true}
+  seed:
+    enabled: false
+  freight-fen: ${MALL_FREIGHT_FEN:0}
+  admin-password: ${MALL_ADMIN_PASSWORD:}

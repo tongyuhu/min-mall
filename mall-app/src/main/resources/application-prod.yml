@@ -1,0 +1,10 @@
+mall:
+  simulation:
+    enabled: false
+  seed:
+    enabled: false
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
