@@ -1,0 +1,56 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+@paymentNo = 替换为模拟支付单号
+@refundNo = 替换为退款单号
+@taskId = 替换为人工处理任务ID
+@shipmentNo = 替换为已受理运单业务号
+
+### 在申请售后前设置退款渠道结果，FAIL 会走退避重试，PENDING/UNKNOWN 走查单
+PUT {{baseUrl}}/dev/v1/payments/{{paymentNo}}/refund-mode
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"mode":"FAIL"}
+
+### 修复渠道故障，后续重试仍使用原 refundNo
+PUT {{baseUrl}}/dev/v1/payments/{{paymentNo}}/refund-mode
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"mode":"SUCCESS"}
+
+### 查看任务，只有 MANUAL 允许人工重试；READY 会按时间自动重试
+GET {{baseUrl}}/admin/v1/tasks
+Authorization: Bearer {{adminToken}}
+
+### 人工恢复，不得直接修改订单为已退款
+POST {{baseUrl}}/admin/v1/tasks/{{taskId}}/retry
+Authorization: Bearer {{adminToken}}
+
+### PENDING/UNKNOWN 渠道退款可手工补充最终结果；成功状态不可倒退
+POST {{baseUrl}}/dev/v1/payments/refunds/{{refundNo}}/resolve
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"success":true}
+
+### 已关闭订单异常收款：paidAt 填订单 expiresAt 之后，观察 CLOSED + SUCCEEDED 退款
+POST {{baseUrl}}/dev/v1/payments/{{paymentNo}}/anomaly
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"paidAt":"2026-11-11T12:00:00Z","copies":2,"delaySeconds":0,"failures":0}
+
+### 物流查询故障，恢复时改 enabled=false
+PUT {{baseUrl}}/dev/v1/shipments/{{shipmentNo}}/failure
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"enabled":true}

@@ -1,0 +1,52 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+@categoryId = 1
+@productId = 1
+@skuId = 1
+
+### 创建分类
+POST {{baseUrl}}/admin/v1/catalog/categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name":"学习用品"}
+
+### 创建商品草稿，默认规格 SKU
+POST {{baseUrl}}/admin/v1/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"categoryId":"{{categoryId}}","title":"学习笔记本","imageUrls":[],"skus":[{"specificationValueIds":[],"priceFen":1990}]}
+
+### 查询商品，获取 SKU id
+GET {{baseUrl}}/admin/v1/products/{{productId}}
+Authorization: Bearer {{adminToken}}
+
+### 入库；重复此键不能重复加库存，改变数量需使用新键
+POST {{baseUrl}}/admin/v1/stock/{{skuId}}/adjustments
+Authorization: Bearer {{adminToken}}
+Idempotency-Key: learning-stock-001
+Content-Type: application/json
+
+{"delta":100}
+
+### 上架
+PUT {{baseUrl}}/admin/v1/products/{{productId}}/sale
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"onSale":true}
+
+### 买家检索
+GET {{baseUrl}}/api/v1/products?page=1&size=20&keyword=笔记本&minPriceFen=1000&maxPriceFen=3000
+
+### 后台包含草稿与下架商品
+GET {{baseUrl}}/admin/v1/products?page=1&size=20
+Authorization: Bearer {{adminToken}}

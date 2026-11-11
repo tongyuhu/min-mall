@@ -1,12 +1,104 @@
 package com.minimall.trade.payment.application;
-import com.minimall.trade.payment.persistence.PaymentRepository;import com.minimall.trade.payment.gateway.*;import com.minimall.trade.order.persistence.OrderRepository;import com.minimall.trade.task.application.IntegrationTaskService;import com.minimall.common.util.*;import com.minimall.common.api.BusinessException;
-import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import java.time.*;import java.util.*;
-@Service public class PaymentService {
- private final PaymentRepository payments;private final OrderRepository orders;private final IntegrationTaskService tasks;private final Json json;private final Clock clock;
- public PaymentService(PaymentRepository payments,OrderRepository orders,IntegrationTaskService tasks,Json json,Clock clock){this.payments=payments;this.orders=orders;this.tasks=tasks;this.json=json;this.clock=clock;}
- @Transactional public PaymentView create(long member,String orderNo){var order=orders.byNo(orderNo,true);if(order.number("member_id")!=member)throw BusinessException.missing();var existing=payments.byOrder(orderNo);if(existing.isPresent()&&"SUCCEEDED".equals(existing.get().text("status")))return view(existing.get());Checks.state("PENDING_PAYMENT".equals(order.text("status"))&&!order.flag("close_requested")&&clock.instant().isBefore(order.instant("expires_at")),"订单当前不能支付");if(existing.isPresent())return view(existing.get());Checks.state(order.number("payable_fen")>0,"零元订单无需发起渠道支付");String no=BusinessNumbers.next("P");payments.insert(no,orderNo,order.number("payable_fen"));tasks.enqueue("CREATE_PAYMENT",no,json.write(new PaymentTaskCommand(no)));return view(payments.byNo(no,false));}
- public PaymentView get(long member,String no){var payment=payments.byNo(no,false);orders.owned(member,payment.text("order_no"));return view(payment);}
- @SuppressWarnings("unchecked") private PaymentView view(com.minimall.common.persistence.DbRow row){String parameters=row.text("pay_parameters_json");return new PaymentView(row.text("payment_no"),row.text("order_no"),row.text("status"),row.number("amount_fen"),parameters==null?Map.of():json.read(parameters,Map.class));}
- @Transactional public Optional<PaymentRequest> creationRequest(String no){var payment=payments.byNo(no,false);var order=orders.byNo(payment.text("order_no"),true);payment=payments.byNo(no,true);if(!"PENDING_PAYMENT".equals(order.text("status"))||order.flag("close_requested")||!clock.instant().isBefore(order.instant("expires_at")))return Optional.empty();return Optional.of(new PaymentRequest(no,order.text("order_no"),payment.number("amount_fen"),payment.text("currency"),order.instant("expires_at")));}
- @Transactional public void saveParameters(PaymentResult result){var payment=payments.byNo(result.paymentNo(),false);orders.byNo(payment.text("order_no"),true);payments.byNo(result.paymentNo(),true);if(result.status()==PaymentState.PENDING&&(result.amountFen()!=payment.number("amount_fen")||!payment.text("currency").equals(result.currency())))throw BusinessException.conflict("渠道返回金额不匹配");payments.parameters(result);tasks.enqueue("QUERY_PAYMENT",result.paymentNo(),json.write(new PaymentTaskCommand(result.paymentNo())));}
+
+import com.minimall.common.api.BusinessException;
+import com.minimall.common.util.*;
+import com.minimall.trade.order.persistence.OrderRepository;
+import com.minimall.trade.payment.gateway.*;
+import com.minimall.trade.payment.persistence.PaymentRepository;
+import com.minimall.trade.task.application.IntegrationTaskService;
+import java.time.*;
+import java.util.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class PaymentService {
+  private final PaymentRepository payments;
+  private final OrderRepository orders;
+  private final IntegrationTaskService tasks;
+  private final Json json;
+  private final Clock clock;
+
+  public PaymentService(
+      PaymentRepository payments,
+      OrderRepository orders,
+      IntegrationTaskService tasks,
+      Json json,
+      Clock clock) {
+    this.payments = payments;
+    this.orders = orders;
+    this.tasks = tasks;
+    this.json = json;
+    this.clock = clock;
+  }
+
+  @Transactional
+  public PaymentView create(long member, String orderNo) {
+    var order = orders.byNo(orderNo, true);
+    if (order.number("member_id") != member) throw BusinessException.missing();
+    var existing = payments.byOrder(orderNo);
+    if (existing.isPresent() && "SUCCEEDED".equals(existing.get().text("status")))
+      return view(existing.get());
+    Checks.state(
+        "PENDING_PAYMENT".equals(order.text("status"))
+            && !order.flag("close_requested")
+            && clock.instant().isBefore(order.instant("expires_at")),
+        "订单当前不能支付");
+    if (existing.isPresent()) return view(existing.get());
+    Checks.state(order.number("payable_fen") > 0, "零元订单无需发起渠道支付");
+    String no = BusinessNumbers.next("P");
+    payments.insert(no, orderNo, order.number("payable_fen"));
+    tasks.enqueue("CREATE_PAYMENT", no, json.write(new PaymentTaskCommand(no)));
+    return view(payments.byNo(no, false));
+  }
+
+  public PaymentView get(long member, String no) {
+    var payment = payments.byNo(no, false);
+    orders.owned(member, payment.text("order_no"));
+    return view(payment);
+  }
+
+  @SuppressWarnings("unchecked")
+  private PaymentView view(com.minimall.common.persistence.DbRow row) {
+    String parameters = row.text("pay_parameters_json");
+    return new PaymentView(
+        row.text("payment_no"),
+        row.text("order_no"),
+        row.text("status"),
+        row.number("amount_fen"),
+        parameters == null ? Map.of() : json.read(parameters, Map.class));
+  }
+
+  @Transactional
+  public Optional<PaymentRequest> creationRequest(String no) {
+    var payment = payments.byNo(no, false);
+    var order = orders.byNo(payment.text("order_no"), true);
+    payment = payments.byNo(no, true);
+    if (!"PENDING_PAYMENT".equals(order.text("status"))
+        || order.flag("close_requested")
+        || !clock.instant().isBefore(order.instant("expires_at"))) return Optional.empty();
+    return Optional.of(
+        new PaymentRequest(
+            no,
+            order.text("order_no"),
+            payment.number("amount_fen"),
+            payment.text("currency"),
+            order.instant("expires_at")));
+  }
+
+  @Transactional
+  public void saveParameters(PaymentResult result) {
+    var payment = payments.byNo(result.paymentNo(), false);
+    orders.byNo(payment.text("order_no"), true);
+    payments.byNo(result.paymentNo(), true);
+    if (result.status() == PaymentState.PENDING
+        && (result.amountFen() != payment.number("amount_fen")
+            || !payment.text("currency").equals(result.currency())))
+      throw BusinessException.conflict("渠道返回金额不匹配");
+    payments.parameters(result);
+    tasks.enqueue(
+        "QUERY_PAYMENT",
+        result.paymentNo(),
+        json.write(new PaymentTaskCommand(result.paymentNo())));
+  }
 }

@@ -8,7 +8,7 @@
 
 **技术栈：**Java 21、Spring Boot 4、Spring MVC、Spring Security、MyBatis-Plus、MySQL、Redis、Flyway、springdoc、JUnit、Testcontainers。
 
-**设计依据：**[已批准设计](../specs/2026-11-11-mini-mall-design.md)，用户于 2026-11-11 批准设计和默认范围。本计划尚待用户审阅及选择执行方式，不代表已实现或已验证。
+**设计依据：**[已批准设计](../specs/2026-11-11-mini-mall-design.md)，用户于 2026-11-11 批准设计和默认范围。用户已批准并选择当前会话按顺序实现。任务1–20的源码及资料已准备，所有编译和运行验证仍未执行；实际记录见 docs/verification/验收记录.md。下方复选框保留原验收要求，未获运行证据的复合步骤不勾选。
 
 ## 全局约束
 

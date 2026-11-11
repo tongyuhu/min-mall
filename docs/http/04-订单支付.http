@@ -1,0 +1,56 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+@addressId = 1
+@skuId = 1
+@couponId = 1
+@fingerprint = 替换为试算返回的fingerprint
+@orderNo = 替换为订单号
+@paymentNo = 替换为支付单号
+
+### 试算；不要客户端自行填入应付价格
+POST {{baseUrl}}/api/v1/checkout
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"addressId":"{{addressId}}","lines":[{"skuId":"{{skuId}}","quantity":2}],"couponId":"{{couponId}}"}
+
+### 下单；同一键和相同请求重放返回相同订单
+POST {{baseUrl}}/api/v1/orders
+Authorization: Bearer {{memberToken}}
+Idempotency-Key: learning-order-001
+Content-Type: application/json
+
+{"checkout":{"addressId":"{{addressId}}","lines":[{"skuId":"{{skuId}}","quantity":2}],"couponId":"{{couponId}}"},"quoteFingerprint":"{{fingerprint}}","fromCart":true}
+
+### 发起支付，202 表示异步受理
+POST {{baseUrl}}/api/v1/payments
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"orderNo":"{{orderNo}}"}
+
+### 等待返回 payParameters.mode=LOCAL_SIMULATION，再模拟付款
+GET {{baseUrl}}/api/v1/payments/{{paymentNo}}
+Authorization: Bearer {{memberToken}}
+
+### 重复通知两次并注入一次投递失败，观察自动恢复
+POST {{baseUrl}}/dev/v1/payments/{{paymentNo}}/success
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"copies":2,"delaySeconds":0,"failures":1}
+
+### 轮询订单直到 PAID
+GET {{baseUrl}}/api/v1/orders/{{orderNo}}
+Authorization: Bearer {{memberToken}}
+
+### 仅对另一笔待付款订单执行取消；202 后轮询 CLOSED 或 PAID
+POST {{baseUrl}}/api/v1/orders/{{orderNo}}/cancel
+Authorization: Bearer {{memberToken}}

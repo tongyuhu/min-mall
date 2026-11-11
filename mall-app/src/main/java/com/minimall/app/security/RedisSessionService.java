@@ -1,13 +1,111 @@
 package com.minimall.app.security;
-import com.minimall.common.auth.*;import com.minimall.common.api.BusinessException;import com.minimall.common.util.*;
-import org.springframework.stereotype.Service;import org.springframework.data.redis.core.StringRedisTemplate;import org.springframework.security.crypto.password.PasswordEncoder;
-import java.util.*;import java.time.*;import java.security.SecureRandom;
-@Service public class RedisSessionService implements SessionService {
- private final Map<ActorType,AccountDirectory> directories=new EnumMap<>(ActorType.class);private final StringRedisTemplate redis;private final PasswordEncoder encoder;private final AuthRateLimiter limiter;private final Clock clock;private final Json json;private final SecureRandom random=new SecureRandom();private final String dummy;
- public record StoredSession(ActorType type,long id,long version,Instant expiresAt){}
- public RedisSessionService(List<AccountDirectory> directories,StringRedisTemplate redis,PasswordEncoder encoder,AuthRateLimiter limiter,Clock clock,Json json){directories.forEach(d->this.directories.put(d.type(),d));this.redis=redis;this.encoder=encoder;this.limiter=limiter;this.clock=clock;this.json=json;this.dummy=encoder.encode("不存在账号时也执行密码校验");}
- public SessionView login(ActorType type,String login,String password,String ip){limiter.check(type,login,ip);String normalized=PasswordRules.login(login);AccountDirectory directory=directories.get(type);if(directory==null)throw BusinessException.unauthorized();var found=directory.findByLogin(normalized);var identity=found.orElse(null);boolean valid=password!=null&&password.length()<=64&&password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length<=72&&encoder.matches(password,identity==null?dummy:identity.passwordHash());if(identity==null||!identity.enabled()||!valid)throw BusinessException.unauthorized();byte[] bytes=new byte[32];random.nextBytes(bytes);String token=Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);Instant until=clock.instant().plusSeconds(7200);try{redis.opsForValue().set(key(token),json.write(new StoredSession(type,identity.id(),identity.authVersion(),until)),Duration.ofHours(2));}catch(RuntimeException e){throw BusinessException.unavailable();}return new SessionView(token,until);}
- public AccountIdentity authenticate(String token){if(token==null||!token.matches("[A-Za-z0-9_-]{43}"))throw BusinessException.unauthorized();String value;try{value=redis.opsForValue().get(key(token));}catch(RuntimeException e){throw BusinessException.unavailable();}if(value==null)throw BusinessException.unauthorized();StoredSession session;try{session=json.read(value,StoredSession.class);}catch(RuntimeException e){throw BusinessException.unauthorized();}if(!clock.instant().isBefore(session.expiresAt()))throw BusinessException.unauthorized();AccountDirectory directory=directories.get(session.type());if(directory==null)throw BusinessException.unauthorized();var identity=directory.findById(session.id()).orElseThrow(BusinessException::unauthorized);if(!identity.enabled()||identity.authVersion()!=session.version()){logout(token);throw BusinessException.unauthorized();}return identity.withoutCredentials();}
- public void logout(String token){if(token==null)return;try{redis.delete(key(token));}catch(RuntimeException e){throw BusinessException.unavailable();}}
- private String key(String token){return "mall:session:"+Digests.sha256(token);}
+
+import com.minimall.common.api.BusinessException;
+import com.minimall.common.auth.*;
+import com.minimall.common.util.*;
+import java.security.SecureRandom;
+import java.time.*;
+import java.util.*;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+@Service
+public class RedisSessionService implements SessionService {
+  private final Map<ActorType, AccountDirectory> directories = new EnumMap<>(ActorType.class);
+  private final StringRedisTemplate redis;
+  private final PasswordEncoder encoder;
+  private final AuthRateLimiter limiter;
+  private final Clock clock;
+  private final Json json;
+  private final SecureRandom random = new SecureRandom();
+  private final String dummy;
+
+  public record StoredSession(ActorType type, long id, long version, Instant expiresAt) {}
+
+  public RedisSessionService(
+      List<AccountDirectory> directories,
+      StringRedisTemplate redis,
+      PasswordEncoder encoder,
+      AuthRateLimiter limiter,
+      Clock clock,
+      Json json) {
+    directories.forEach(d -> this.directories.put(d.type(), d));
+    this.redis = redis;
+    this.encoder = encoder;
+    this.limiter = limiter;
+    this.clock = clock;
+    this.json = json;
+    this.dummy = encoder.encode("不存在账号时也执行密码校验");
+  }
+
+  public SessionView login(ActorType type, String login, String password, String ip) {
+    limiter.check(type, login, ip);
+    String normalized = PasswordRules.login(login);
+    AccountDirectory directory = directories.get(type);
+    if (directory == null) throw BusinessException.unauthorized();
+    var found = directory.findByLogin(normalized);
+    var identity = found.orElse(null);
+    boolean valid =
+        password != null
+            && password.length() <= 64
+            && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 72
+            && encoder.matches(password, identity == null ? dummy : identity.passwordHash());
+    if (identity == null || !identity.enabled() || !valid) throw BusinessException.unauthorized();
+    byte[] bytes = new byte[32];
+    random.nextBytes(bytes);
+    String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    Instant until = clock.instant().plusSeconds(7200);
+    try {
+      redis
+          .opsForValue()
+          .set(
+              key(token),
+              json.write(new StoredSession(type, identity.id(), identity.authVersion(), until)),
+              Duration.ofHours(2));
+    } catch (RuntimeException e) {
+      throw BusinessException.unavailable();
+    }
+    return new SessionView(token, until);
+  }
+
+  public AccountIdentity authenticate(String token) {
+    if (token == null || !token.matches("[A-Za-z0-9_-]{43}"))
+      throw BusinessException.unauthorized();
+    String value;
+    try {
+      value = redis.opsForValue().get(key(token));
+    } catch (RuntimeException e) {
+      throw BusinessException.unavailable();
+    }
+    if (value == null) throw BusinessException.unauthorized();
+    StoredSession session;
+    try {
+      session = json.read(value, StoredSession.class);
+    } catch (RuntimeException e) {
+      throw BusinessException.unauthorized();
+    }
+    if (!clock.instant().isBefore(session.expiresAt())) throw BusinessException.unauthorized();
+    AccountDirectory directory = directories.get(session.type());
+    if (directory == null) throw BusinessException.unauthorized();
+    var identity = directory.findById(session.id()).orElseThrow(BusinessException::unauthorized);
+    if (!identity.enabled() || identity.authVersion() != session.version()) {
+      logout(token);
+      throw BusinessException.unauthorized();
+    }
+    return identity.withoutCredentials();
+  }
+
+  public void logout(String token) {
+    if (token == null) return;
+    try {
+      redis.delete(key(token));
+    } catch (RuntimeException e) {
+      throw BusinessException.unavailable();
+    }
+  }
+
+  private String key(String token) {
+    return "mall:session:" + Digests.sha256(token);
+  }
 }

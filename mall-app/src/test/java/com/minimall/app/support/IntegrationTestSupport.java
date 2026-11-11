@@ -13,22 +13,26 @@ import org.testcontainers.utility.DockerImageName;
 @org.springframework.context.annotation.Import(MallFixtures.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationTestSupport {
-    static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:8.4.13"));
-    static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7.4.12-alpine"))
-            .withExposedPorts(6379);
-    static { MYSQL.start(); REDIS.start(); }
+  static final MySQLContainer MYSQL = new MySQLContainer(DockerImageName.parse("mysql:8.4.13"));
+  protected static final GenericContainer<?> REDIS =
+      new GenericContainer<>(DockerImageName.parse("redis:7.4.12-alpine")).withExposedPorts(6379);
 
-    @DynamicPropertySource
-    static void properties(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", MYSQL::getJdbcUrl);
-        properties.add("spring.datasource.username", MYSQL::getUsername);
-        properties.add("spring.datasource.password", MYSQL::getPassword);
-        properties.add("spring.data.redis.host", REDIS::getHost);
-        properties.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
-        properties.add("spring.data.redis.password", () -> "");
-        properties.add("mall.simulation.enabled", () -> true);
-        properties.add("mall.simulation.key", () -> "integration-only-secret-key-32-bytes");
-        properties.add("mall.jobs.enabled", () -> false);
-        properties.add("mall.seed.enabled", () -> false);
-    }
+  static {
+    MYSQL.start();
+    REDIS.start();
+  }
+
+  @DynamicPropertySource
+  static void properties(DynamicPropertyRegistry properties) {
+    properties.add("spring.datasource.url", MYSQL::getJdbcUrl);
+    properties.add("spring.datasource.username", MYSQL::getUsername);
+    properties.add("spring.datasource.password", MYSQL::getPassword);
+    properties.add("spring.data.redis.host", REDIS::getHost);
+    properties.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+    properties.add("spring.data.redis.password", () -> "");
+    properties.add("mall.simulation.enabled", () -> true);
+    properties.add("mall.simulation.key", () -> "integration-only-secret-key-32-bytes");
+    properties.add("mall.jobs.enabled", () -> false);
+    properties.add("mall.seed.enabled", () -> false);
+  }
 }

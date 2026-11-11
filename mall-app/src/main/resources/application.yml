@@ -40,3 +40,4 @@ mall:
     enabled: false
   freight-fen: ${MALL_FREIGHT_FEN:0}
   admin-password: ${MALL_ADMIN_PASSWORD:}
+  demo-password: ${MALL_DEMO_PASSWORD:}

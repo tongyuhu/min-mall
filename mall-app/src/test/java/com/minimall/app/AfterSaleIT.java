@@ -1,7 +1,54 @@
 package com.minimall.app;
-import com.minimall.app.support.*;import com.minimall.trade.checkout.application.*;import com.minimall.trade.order.application.*;import com.minimall.trade.aftersale.application.*;import com.minimall.trade.aftersale.domain.AfterSalePolicy;import com.minimall.common.api.BusinessException;import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import java.time.*;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.minimall.app.support.*;
+import com.minimall.common.api.BusinessException;
+import com.minimall.trade.aftersale.application.*;
+import com.minimall.trade.aftersale.domain.AfterSalePolicy;
+import com.minimall.trade.checkout.application.*;
+import com.minimall.trade.order.application.*;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 class AfterSaleIT extends IntegrationTestSupport {
- @Autowired MallFixtures f;@Autowired CheckoutService checkout;@Autowired OrderService orders;@Autowired AfterSaleService aftersales;
- @Test void allowsOnlyOneActiveRequest(){var buyer=f.buyer();var goods=f.goods(0,1);var c=new CheckoutCommand(buyer.addressId(),List.of(new CheckoutLine(goods.skuId(),1)),null);var order=orders.place(buyer.memberId(),f.unique(),new PlaceOrderCommand(c,checkout.preview(buyer.memberId(),c).fingerprint(),false));var first=aftersales.apply(buyer.memberId(),order.orderNo(),"测试退款");assertEquals(first.afterSaleNo(),aftersales.apply(buyer.memberId(),order.orderNo(),"测试退款").afterSaleNo());aftersales.withdraw(buyer.memberId(),first.afterSaleNo());assertNotEquals(first.afterSaleNo(),aftersales.apply(buyer.memberId(),order.orderNo(),"重新申请").afterSaleNo());}
- @Test void enforcesSevenDayBoundary(){Instant received=Instant.parse("2026-11-11T00:00:00Z");assertDoesNotThrow(()->AfterSalePolicy.validate("COMPLETED",received,received.plus(Duration.ofDays(7))));assertThrows(BusinessException.class,()->AfterSalePolicy.validate("COMPLETED",received,received.plus(Duration.ofDays(7)).plusNanos(1000)));}
+  @Autowired MallFixtures f;
+  @Autowired CheckoutService checkout;
+  @Autowired OrderService orders;
+  @Autowired AfterSaleService aftersales;
+
+  @Test
+  void allowsOnlyOneActiveRequest() {
+    var buyer = f.buyer();
+    var goods = f.goods(0, 1);
+    var c =
+        new CheckoutCommand(buyer.addressId(), List.of(new CheckoutLine(goods.skuId(), 1)), null);
+    var order =
+        orders.place(
+            buyer.memberId(),
+            f.unique(),
+            new PlaceOrderCommand(c, checkout.preview(buyer.memberId(), c).fingerprint(), false));
+    var first = aftersales.apply(buyer.memberId(), order.orderNo(), "测试退款");
+    assertEquals(
+        first.afterSaleNo(),
+        aftersales.apply(buyer.memberId(), order.orderNo(), "测试退款").afterSaleNo());
+    aftersales.withdraw(buyer.memberId(), first.afterSaleNo());
+    assertNotEquals(
+        first.afterSaleNo(),
+        aftersales.apply(buyer.memberId(), order.orderNo(), "重新申请").afterSaleNo());
+  }
+
+  @Test
+  void enforcesSevenDayBoundary() {
+    Instant received = Instant.parse("2026-11-11T00:00:00Z");
+    assertDoesNotThrow(
+        () -> AfterSalePolicy.validate("COMPLETED", received, received.plus(Duration.ofDays(7))));
+    assertThrows(
+        BusinessException.class,
+        () ->
+            AfterSalePolicy.validate(
+                "COMPLETED", received, received.plus(Duration.ofDays(7)).plusNanos(1000)));
+  }
 }

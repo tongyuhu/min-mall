@@ -1,0 +1,41 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+### 注册（每次使用新的用户名）
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+
+{"username":"learning_buyer_01","password":"replace_with_your_password"}
+
+### 买家登录
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{"username":"learning_buyer_01","password":"replace_with_your_password"}
+
+### 管理员登录，密码来自本地环境配置
+POST {{baseUrl}}/admin/v1/auth/login
+Content-Type: application/json
+
+{"username":"admin","password":"replace_with_your_admin_password"}
+
+### 新增地址，记下返回的 id
+POST {{baseUrl}}/api/v1/addresses
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"receiver":"学习买家","phone":"13800000000","province":"浙江","city":"杭州","district":"西湖","detail":"演示地址","defaultAddress":true}
+
+### 查看自己的地址
+GET {{baseUrl}}/api/v1/addresses
+Authorization: Bearer {{memberToken}}
+
+### 退出后旧 token 不再有效
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{memberToken}}

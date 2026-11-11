@@ -1,19 +1,168 @@
 package com.minimall.trade.aftersale.application;
-import com.minimall.trade.aftersale.persistence.AfterSaleRepository;import com.minimall.trade.aftersale.domain.AfterSalePolicy;import com.minimall.trade.order.persistence.OrderRepository;import com.minimall.trade.task.application.IntegrationTaskService;import com.minimall.trade.refund.application.EnsureRefundCommand;import com.minimall.common.auth.*;import com.minimall.common.util.*;import com.minimall.common.api.*;import com.minimall.common.persistence.DbRow;
-import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import java.time.*;import java.util.*;
-@Service public class AfterSaleService {
- private final AfterSaleRepository repository;private final OrderRepository orders;private final IntegrationTaskService tasks;private final Json json;private final Clock clock;private final CurrentActor actor;
- public AfterSaleService(AfterSaleRepository repository,OrderRepository orders,IntegrationTaskService tasks,Json json,Clock clock,CurrentActor actor){this.repository=repository;this.orders=orders;this.tasks=tasks;this.json=json;this.clock=clock;this.actor=actor;}
- @Transactional public AfterSaleView apply(long member,String no,String reason){reason=Checks.text(reason,1,255,"售后原因");var order=orders.byNo(no,true);if(order.number("member_id")!=member)throw BusinessException.missing();AfterSalePolicy.validate(order.text("status"),order.instant("completed_at"),clock.instant());if(order.text("active_after_sale_no")!=null){var existing=repository.byNo(order.text("active_after_sale_no"),true);if(existing.text("reason").equals(reason))return view(existing);throw BusinessException.conflict("已有进行中的售后");}String after=BusinessNumbers.next("A");repository.insert(after,no,member,"PAID".equals(order.text("status"))?"REFUND_ONLY":"RETURN_REFUND",reason,clock.instant());orders.activeAfterSale(no,after);repository.log(after,"APPLY","MEMBER",member,reason);return view(repository.byNo(after,false));}
- private DbRow lock(String no){var row=repository.byNo(no,false);orders.byNo(row.text("order_no"),true);return repository.byNo(no,true);}
- @Transactional public void review(String no,boolean approved,String reason){long admin=actor.require(ActorType.ADMIN);reason=Checks.text(reason,1,255,"审核说明");var row=lock(no);Checks.state("WAIT_REVIEW".equals(row.text("status")),"售后已审核");if(!approved){repository.status(no,"REJECTED");orders.activeAfterSale(row.text("order_no"),null);}else if("REFUND_ONLY".equals(row.text("type")))startRefund(row);else repository.status(no,"WAIT_RETURN");repository.log(no,approved?"APPROVE":"REJECT","ADMIN",admin,reason);}
- @Transactional public void submitReturn(long member,String no,String carrier,String tracking){carrier=Checks.text(carrier,1,64,"承运商");tracking=Checks.text(tracking,1,100,"退货运单号");var row=lock(no);owned(row,member);if("WAIT_INSPECTION".equals(row.text("status"))&&carrier.equals(row.text("return_carrier"))&&tracking.equals(row.text("return_tracking_no")))return;Checks.state("WAIT_RETURN".equals(row.text("status")),"当前不能提交退货");repository.returned(no,carrier,tracking);repository.log(no,"RETURN","MEMBER",member,"买家提交退货运单");}
- @Transactional public void acceptReturn(String no){long admin=actor.require(ActorType.ADMIN);var row=lock(no);Checks.state("WAIT_INSPECTION".equals(row.text("status")),"当前不能验收退货");repository.accepted(no,clock.instant());startRefund(row);repository.log(no,"ACCEPT_RETURN","ADMIN",admin,"退货验收通过");}
- @Transactional public void withdraw(long member,String no){var row=lock(no);owned(row,member);if("WITHDRAWN".equals(row.text("status")))return;Checks.state(Set.of("WAIT_REVIEW","WAIT_RETURN","WAIT_INSPECTION").contains(row.text("status")),"退款中或已完成的售后不能撤销");repository.status(no,"WITHDRAWN");orders.activeAfterSale(row.text("order_no"),null);repository.log(no,"WITHDRAW","MEMBER",member,"买家撤销售后");}
- private void startRefund(DbRow row){String no=row.text("after_sale_no");repository.status(no,"REFUNDING");String key="AFTER_SALE:"+no;tasks.enqueue("ENSURE_REFUND",key,json.write(new EnsureRefundCommand(key,row.text("order_no"),row.number("id"),"整单售后退款")));}
- public AfterSaleView detail(long member,String no){var row=repository.byNo(no,false);owned(row,member);return view(row);}
- public List<AfterSaleView> mine(long member){return repository.mine(member).stream().map(this::view).toList();}
- public PageResult<AfterSaleView> search(String status,PageQuery page){return new PageResult<>(repository.search(status,page).stream().map(this::view).toList(),repository.count(status),page.page(),page.size());}
- private void owned(DbRow row,long member){if(row.number("member_id")!=member)throw BusinessException.missing();}
- private AfterSaleView view(DbRow r){return new AfterSaleView(Long.toString(r.number("id")),r.text("after_sale_no"),r.text("order_no"),r.text("type"),r.text("status"),r.text("reason"),r.text("return_carrier"),r.text("return_tracking_no"),r.text("refund_no"),r.instant("created_at"),r.instant("accepted_at"));}
+
+import com.minimall.common.api.*;
+import com.minimall.common.auth.*;
+import com.minimall.common.persistence.DbRow;
+import com.minimall.common.util.*;
+import com.minimall.trade.aftersale.domain.AfterSalePolicy;
+import com.minimall.trade.aftersale.persistence.AfterSaleRepository;
+import com.minimall.trade.order.persistence.OrderRepository;
+import com.minimall.trade.refund.application.EnsureRefundCommand;
+import com.minimall.trade.task.application.IntegrationTaskService;
+import java.time.*;
+import java.util.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AfterSaleService {
+  private final AfterSaleRepository repository;
+  private final OrderRepository orders;
+  private final IntegrationTaskService tasks;
+  private final Json json;
+  private final Clock clock;
+  private final CurrentActor actor;
+
+  public AfterSaleService(
+      AfterSaleRepository repository,
+      OrderRepository orders,
+      IntegrationTaskService tasks,
+      Json json,
+      Clock clock,
+      CurrentActor actor) {
+    this.repository = repository;
+    this.orders = orders;
+    this.tasks = tasks;
+    this.json = json;
+    this.clock = clock;
+    this.actor = actor;
+  }
+
+  @Transactional
+  public AfterSaleView apply(long member, String no, String reason) {
+    reason = Checks.text(reason, 1, 255, "售后原因");
+    var order = orders.byNo(no, true);
+    if (order.number("member_id") != member) throw BusinessException.missing();
+    AfterSalePolicy.validate(order.text("status"), order.instant("completed_at"), clock.instant());
+    if (order.text("active_after_sale_no") != null) {
+      var existing = repository.byNo(order.text("active_after_sale_no"), true);
+      if (existing.text("reason").equals(reason)) return view(existing);
+      throw BusinessException.conflict("已有进行中的售后");
+    }
+    String after = BusinessNumbers.next("A");
+    repository.insert(
+        after,
+        no,
+        member,
+        "PAID".equals(order.text("status")) ? "REFUND_ONLY" : "RETURN_REFUND",
+        reason,
+        clock.instant());
+    orders.activeAfterSale(no, after);
+    repository.log(after, "APPLY", "MEMBER", member, reason);
+    return view(repository.byNo(after, false));
+  }
+
+  private DbRow lock(String no) {
+    var row = repository.byNo(no, false);
+    orders.byNo(row.text("order_no"), true);
+    return repository.byNo(no, true);
+  }
+
+  @Transactional
+  public void review(String no, boolean approved, String reason) {
+    long admin = actor.require(ActorType.ADMIN);
+    reason = Checks.text(reason, 1, 255, "审核说明");
+    var row = lock(no);
+    Checks.state("WAIT_REVIEW".equals(row.text("status")), "售后已审核");
+    if (!approved) {
+      repository.status(no, "REJECTED");
+      orders.activeAfterSale(row.text("order_no"), null);
+    } else if ("REFUND_ONLY".equals(row.text("type"))) startRefund(row);
+    else repository.status(no, "WAIT_RETURN");
+    repository.log(no, approved ? "APPROVE" : "REJECT", "ADMIN", admin, reason);
+  }
+
+  @Transactional
+  public void submitReturn(long member, String no, String carrier, String tracking) {
+    carrier = Checks.text(carrier, 1, 64, "承运商");
+    tracking = Checks.text(tracking, 1, 100, "退货运单号");
+    var row = lock(no);
+    owned(row, member);
+    if ("WAIT_INSPECTION".equals(row.text("status"))
+        && carrier.equals(row.text("return_carrier"))
+        && tracking.equals(row.text("return_tracking_no"))) return;
+    Checks.state("WAIT_RETURN".equals(row.text("status")), "当前不能提交退货");
+    repository.returned(no, carrier, tracking);
+    repository.log(no, "RETURN", "MEMBER", member, "买家提交退货运单");
+  }
+
+  @Transactional
+  public void acceptReturn(String no) {
+    long admin = actor.require(ActorType.ADMIN);
+    var row = lock(no);
+    Checks.state("WAIT_INSPECTION".equals(row.text("status")), "当前不能验收退货");
+    repository.accepted(no, clock.instant());
+    startRefund(row);
+    repository.log(no, "ACCEPT_RETURN", "ADMIN", admin, "退货验收通过");
+  }
+
+  @Transactional
+  public void withdraw(long member, String no) {
+    var row = lock(no);
+    owned(row, member);
+    if ("WITHDRAWN".equals(row.text("status"))) return;
+    Checks.state(
+        Set.of("WAIT_REVIEW", "WAIT_RETURN", "WAIT_INSPECTION").contains(row.text("status")),
+        "退款中或已完成的售后不能撤销");
+    repository.status(no, "WITHDRAWN");
+    orders.activeAfterSale(row.text("order_no"), null);
+    repository.log(no, "WITHDRAW", "MEMBER", member, "买家撤销售后");
+  }
+
+  private void startRefund(DbRow row) {
+    String no = row.text("after_sale_no");
+    repository.status(no, "REFUNDING");
+    String key = "AFTER_SALE:" + no;
+    tasks.enqueue(
+        "ENSURE_REFUND",
+        key,
+        json.write(new EnsureRefundCommand(key, row.text("order_no"), row.number("id"), "整单售后退款")));
+  }
+
+  public AfterSaleView detail(long member, String no) {
+    var row = repository.byNo(no, false);
+    owned(row, member);
+    return view(row);
+  }
+
+  public List<AfterSaleView> mine(long member) {
+    return repository.mine(member).stream().map(this::view).toList();
+  }
+
+  public PageResult<AfterSaleView> search(String status, PageQuery page) {
+    return new PageResult<>(
+        repository.search(status, page).stream().map(this::view).toList(),
+        repository.count(status),
+        page.page(),
+        page.size());
+  }
+
+  private void owned(DbRow row, long member) {
+    if (row.number("member_id") != member) throw BusinessException.missing();
+  }
+
+  private AfterSaleView view(DbRow r) {
+    return new AfterSaleView(
+        Long.toString(r.number("id")),
+        r.text("after_sale_no"),
+        r.text("order_no"),
+        r.text("type"),
+        r.text("status"),
+        r.text("reason"),
+        r.text("return_carrier"),
+        r.text("return_tracking_no"),
+        r.text("refund_no"),
+        r.instant("created_at"),
+        r.instant("accepted_at"));
+  }
 }

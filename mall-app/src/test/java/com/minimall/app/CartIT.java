@@ -1,7 +1,46 @@
 package com.minimall.app;
-import com.minimall.app.support.IntegrationTestSupport;import com.minimall.trade.cart.application.CartService;import com.minimall.trade.checkout.application.CheckoutLine;import com.minimall.catalog.product.application.*;import com.minimall.common.api.BusinessException;
-import org.junit.jupiter.api.Test;import org.springframework.beans.factory.annotation.Autowired;import org.springframework.transaction.PlatformTransactionManager;import org.springframework.transaction.support.TransactionTemplate;import java.util.*;import static org.junit.jupiter.api.Assertions.*;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.minimall.app.support.IntegrationTestSupport;
+import com.minimall.catalog.product.application.*;
+import com.minimall.common.api.BusinessException;
+import com.minimall.trade.cart.application.CartService;
+import com.minimall.trade.checkout.application.CheckoutLine;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
 class CartIT extends IntegrationTestSupport {
- @Autowired CartService cart;@Autowired ProductService products;@Autowired TaxonomyService taxonomy;@Autowired PlatformTransactionManager manager;
- @Test void consumesOnlyPurchasedQuantity(){long category=taxonomy.save("categories",null,null,"购物车测试");long product=products.save(new ProductCommand(null,category,null,"测试商品",List.of(),List.of(new SkuInput(null,List.of(),100))));products.setOnSale(product,true);long sku=Long.parseLong(products.detail(product).skus().getFirst().id());long member=UUID.randomUUID().getMostSignificantBits()>>>1;cart.add(member,sku,5);new TransactionTemplate(manager).executeWithoutResult(s->cart.consume(member,List.of(new CheckoutLine(sku,2))));assertEquals(3,cart.list(member).getFirst().quantity());long item=Long.parseLong(cart.list(member).getFirst().id());assertThrows(BusinessException.class,()->cart.update(member+1,item,1,true));products.setOnSale(product,false);assertFalse(cart.list(member).getFirst().valid());}
+  @Autowired CartService cart;
+  @Autowired ProductService products;
+  @Autowired TaxonomyService taxonomy;
+  @Autowired PlatformTransactionManager manager;
+
+  @Test
+  void consumesOnlyPurchasedQuantity() {
+    long category = taxonomy.save("categories", null, null, "购物车测试");
+    long product =
+        products.save(
+            new ProductCommand(
+                null,
+                category,
+                null,
+                "测试商品",
+                List.of(),
+                List.of(new SkuInput(null, List.of(), 100))));
+    products.setOnSale(product, true);
+    long sku = Long.parseLong(products.detail(product).skus().getFirst().id());
+    long member = UUID.randomUUID().getMostSignificantBits() >>> 1;
+    cart.add(member, sku, 5);
+    new TransactionTemplate(manager)
+        .executeWithoutResult(s -> cart.consume(member, List.of(new CheckoutLine(sku, 2))));
+    assertEquals(3, cart.list(member).getFirst().quantity());
+    long item = Long.parseLong(cart.list(member).getFirst().id());
+    assertThrows(BusinessException.class, () -> cart.update(member + 1, item, 1, true));
+    products.setOnSale(product, false);
+    assertFalse(cart.list(member).getFirst().valid());
+  }
 }

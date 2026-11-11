@@ -19,11 +19,18 @@ $sources = Get-ChildItem -Recurse -Filter *.java | Where-Object FullName -NotMat
 foreach ($source in $sources) {
     $content = Get-Content -LiteralPath $source.FullName -Raw -Encoding UTF8
     if ($content.Contains([char]0xFFFD)) { throw "编码错误：$($source.FullName)" }
-    if ($content -match 'import com\.minimall\.(\w+)\..*\.persistence\.') {
-        $owner = $Matches[1]
+    foreach ($dependencyImport in [regex]::Matches($content, 'import\s+com\.minimall\.(\w+)\.[^;]*\.persistence\.')) {
+        $owner = $dependencyImport.Groups[1].Value
         if ($owner -ne 'common' -and $source.FullName -notmatch "mall-$owner[\\/]" -and $source.FullName -notmatch '[\\/]src[\\/]test[\\/]') { throw "跨模块持久化引用：$($source.FullName)" }
     }
 }
+$scriptErrors = @()
+Get-ChildItem -LiteralPath scripts -Filter '*.ps1' | ForEach-Object {
+    $tokens = $null; $problems = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$problems)
+    $scriptErrors += $problems
+}
+if ($scriptErrors.Count -gt 0) { $scriptErrors | Format-List; throw 'PowerShell脚本语法检查失败' }
 git diff --check
 if ($LASTEXITCODE -ne 0) { throw 'Git空白检查失败' }
 git diff --cached --check

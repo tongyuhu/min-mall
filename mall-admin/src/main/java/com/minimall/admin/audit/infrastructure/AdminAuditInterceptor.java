@@ -1,8 +1,76 @@
 package com.minimall.admin.audit.infrastructure;
-import com.minimall.admin.audit.application.*;import org.springframework.stereotype.Component;import org.springframework.core.annotation.Order;import org.springframework.web.filter.OncePerRequestFilter;import org.springframework.web.servlet.HandlerMapping;import jakarta.servlet.*;import jakarta.servlet.http.*;import org.slf4j.*;import java.time.Clock;import java.util.*;import java.io.IOException;
+
+import com.minimall.admin.audit.application.*;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
+import java.io.IOException;
+import java.time.Clock;
+import java.util.*;
+import org.slf4j.*;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerMapping;
+
 /** 在安全过滤器外记录管理写操作，失败审计不会改变已提交的业务响应。 */
-@Component @Order(-150) public class AdminAuditInterceptor extends OncePerRequestFilter {
- private static final Logger LOG=LoggerFactory.getLogger(AdminAuditInterceptor.class);private final AuditService audit;private final Clock clock;public AdminAuditInterceptor(AuditService audit,Clock clock){this.audit=audit;this.clock=clock;}
- @Override protected boolean shouldNotFilter(HttpServletRequest request){return !request.getRequestURI().startsWith("/admin/v1/")||Set.of("GET","HEAD","OPTIONS").contains(request.getMethod());}
- @Override protected void doFilterInternal(HttpServletRequest req,HttpServletResponse res,FilterChain chain)throws ServletException,IOException{boolean failed=false;try{chain.doFilter(req,res);}catch(ServletException|IOException|RuntimeException e){failed=true;throw e;}finally{int status=failed?500:res.getStatus();String pattern=Objects.toString(req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE),"/admin/v1/**");String operation=req.getMethod()+" "+pattern;var targets=new ArrayList<String>();Object raw=req.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);if(raw instanceof Map<?,?> vars)vars.forEach((k,v)->{if(Set.of("id","no","skuId").contains(k.toString())&&v!=null&&v.toString().matches("[a-zA-Z0-9_-]{1,100}"))targets.add(k+"="+v);});String target=String.join(",",targets);Long actor=req.getAttribute("mall.actorId") instanceof Long id?id:null;try{audit.record(new AdminAuditEvent(actor,operation.substring(0,Math.min(200,operation.length())),target.substring(0,Math.min(255,target.length())),status<400?"SUCCESS":"FAILED",status,MDC.get("traceId"),clock.instant()));}catch(RuntimeException e){LOG.error("管理审计写入失败，状态={}，异常类型={}",status,e.getClass().getSimpleName());}}}
+@Component
+@Order(-150)
+public class AdminAuditInterceptor extends OncePerRequestFilter {
+  private static final Logger LOG = LoggerFactory.getLogger(AdminAuditInterceptor.class);
+  private final AuditService audit;
+  private final Clock clock;
+
+  public AdminAuditInterceptor(AuditService audit, Clock clock) {
+    this.audit = audit;
+    this.clock = clock;
+  }
+
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    return !request.getRequestURI().startsWith("/admin/v1/")
+        || Set.of("GET", "HEAD", "OPTIONS").contains(request.getMethod());
+  }
+
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+      throws ServletException, IOException {
+    boolean failed = false;
+    try {
+      chain.doFilter(req, res);
+    } catch (ServletException | IOException | RuntimeException e) {
+      failed = true;
+      throw e;
+    } finally {
+      int status = failed ? 500 : res.getStatus();
+      String pattern =
+          Objects.toString(
+              req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE), "/admin/v1/**");
+      String operation = req.getMethod() + " " + pattern;
+      var targets = new ArrayList<String>();
+      Object raw = req.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+      if (raw instanceof Map<?, ?> vars)
+        vars.forEach(
+            (k, v) -> {
+              if (Set.of("id", "no", "skuId").contains(k.toString())
+                  && v != null
+                  && v.toString().matches("[a-zA-Z0-9_-]{1,100}")) targets.add(k + "=" + v);
+            });
+      String target = String.join(",", targets);
+      Long actor = req.getAttribute("mall.actorId") instanceof Long id ? id : null;
+      try {
+        audit.record(
+            new AdminAuditEvent(
+                actor,
+                operation.substring(0, Math.min(200, operation.length())),
+                target.substring(0, Math.min(255, target.length())),
+                status < 400 ? "SUCCESS" : "FAILED",
+                status,
+                MDC.get("traceId"),
+                clock.instant()));
+      } catch (RuntimeException e) {
+        LOG.error("管理审计写入失败，状态={}，异常类型={}", status, e.getClass().getSimpleName());
+      }
+    }
+  }
 }

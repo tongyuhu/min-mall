@@ -1,2 +1,6 @@
 package com.minimall.common.auth;
-public enum ActorType { MEMBER, ADMIN }
+
+public enum ActorType {
+  MEMBER,
+  ADMIN
+}

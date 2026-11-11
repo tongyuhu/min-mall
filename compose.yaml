@@ -33,6 +33,7 @@ services:
     env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: local
+      SERVER_PORT: 18080
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       REDIS_HOST: redis

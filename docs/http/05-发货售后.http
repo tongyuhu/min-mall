@@ -1,0 +1,68 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+@orderNo = 替换为已付款订单号
+@shipmentNo = 替换为运单业务号
+@afterSaleNo = 替换为售后单号
+@refundNo = 替换为退款单号
+
+### 整单发货
+POST {{baseUrl}}/admin/v1/orders/{{orderNo}}/shipment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"carrier":"模拟快递","trackingNo":"learning-send-001"}
+
+### 等待运单不再为 CREATING 后注入轨迹
+GET {{baseUrl}}/admin/v1/orders/{{orderNo}}/shipment
+Authorization: Bearer {{adminToken}}
+
+### 修改 eventTime 为演示时间；同事件号不能代表不同事件
+POST {{baseUrl}}/dev/v1/shipments/{{shipmentNo}}/tracks
+X-Dev-Key: {{devKey}}
+Content-Type: application/json
+
+{"eventId":"learning-delivered-001","eventTime":"2026-11-11T08:00:00Z","status":"DELIVERED","description":"已签收"}
+
+### 买家确认收货，物流签收不会自动调用此接口
+POST {{baseUrl}}/api/v1/orders/{{orderNo}}/receipt
+Authorization: Bearer {{memberToken}}
+
+### 7 天内申请整单售后
+POST {{baseUrl}}/api/v1/after-sales
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"orderNo":"{{orderNo}}","reason":"学习退货退款"}
+
+### 管理员审核
+POST {{baseUrl}}/admin/v1/after-sales/{{afterSaleNo}}/review
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"approved":true,"reason":"同意退货"}
+
+### 买家填写退货运单
+POST {{baseUrl}}/api/v1/after-sales/{{afterSaleNo}}/return
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"carrier":"模拟快递","trackingNo":"learning-return-001"}
+
+### 后台收到退货，触发异步退款
+POST {{baseUrl}}/admin/v1/after-sales/{{afterSaleNo}}/accept-return
+Authorization: Bearer {{adminToken}}
+
+### 轮询售后 COMPLETED，取得 refundNo
+GET {{baseUrl}}/api/v1/after-sales/{{afterSaleNo}}
+Authorization: Bearer {{memberToken}}
+
+### 检查到账及退款金额
+GET {{baseUrl}}/api/v1/refunds/{{refundNo}}
+Authorization: Bearer {{memberToken}}

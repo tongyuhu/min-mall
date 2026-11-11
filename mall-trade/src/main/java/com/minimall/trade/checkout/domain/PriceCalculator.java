@@ -1,6 +1,47 @@
 package com.minimall.trade.checkout.domain;
-import java.math.BigInteger;import java.util.*;import com.minimall.common.api.BusinessException;
+
+import com.minimall.common.api.BusinessException;
+import java.math.BigInteger;
+import java.util.*;
+
 public final class PriceCalculator {
- private PriceCalculator(){}
- public static PriceBreakdown calculate(List<Long> lines,long discount,long freight){if(lines==null||lines.isEmpty()||discount<0||freight<0)throw BusinessException.bad("金额参数不合法");try{long total=0;for(Long line:lines){if(line==null||line<0)throw BusinessException.bad("商品金额不合法");total=Math.addExact(total,line);}if(discount>total)throw BusinessException.bad("优惠超过商品金额");var payable=new ArrayList<Long>();long allocated=0;for(long line:lines){long share=total==0?0:BigInteger.valueOf(line).multiply(BigInteger.valueOf(discount)).divide(BigInteger.valueOf(total)).longValueExact();payable.add(line-share);allocated+=share;}long remainder=discount-allocated;for(int i=0;remainder>0&&i<payable.size();i++){if(payable.get(i)>0){payable.set(i,payable.get(i)-1);remainder--;}}if(remainder!=0)throw new IllegalStateException("优惠分摊不守恒");return new PriceBreakdown(payable,total,discount,freight,Math.addExact(total-discount,freight));}catch(ArithmeticException e){throw BusinessException.bad("金额超出范围");}}
+  private PriceCalculator() {}
+
+  public static PriceBreakdown calculate(List<Long> lines, long discount, long freight) {
+    if (lines == null || lines.isEmpty() || discount < 0 || freight < 0)
+      throw BusinessException.bad("金额参数不合法");
+    try {
+      long total = 0;
+      for (Long line : lines) {
+        if (line == null || line < 0) throw BusinessException.bad("商品金额不合法");
+        total = Math.addExact(total, line);
+      }
+      if (discount > total) throw BusinessException.bad("优惠超过商品金额");
+      var payable = new ArrayList<Long>();
+      long allocated = 0;
+      for (long line : lines) {
+        long share =
+            total == 0
+                ? 0
+                : BigInteger.valueOf(line)
+                    .multiply(BigInteger.valueOf(discount))
+                    .divide(BigInteger.valueOf(total))
+                    .longValueExact();
+        payable.add(line - share);
+        allocated += share;
+      }
+      long remainder = discount - allocated;
+      for (int i = 0; remainder > 0 && i < payable.size(); i++) {
+        if (payable.get(i) > 0) {
+          payable.set(i, payable.get(i) - 1);
+          remainder--;
+        }
+      }
+      if (remainder != 0) throw new IllegalStateException("优惠分摊不守恒");
+      return new PriceBreakdown(
+          payable, total, discount, freight, Math.addExact(total - discount, freight));
+    } catch (ArithmeticException e) {
+      throw BusinessException.bad("金额超出范围");
+    }
+  }
 }

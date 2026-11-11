@@ -1,0 +1,37 @@
+@baseUrl = http://127.0.0.1:18080
+@memberToken = 替换为买家登录返回的token
+@adminToken = 替换为管理员登录返回的token
+@devKey = 替换为本地开发密钥
+
+# 本文件为逐步手工演示；将响应中的ID和业务号填入后续请求。
+# 所有金额均为整数分。不要把真实凭证保存或提交到仓库。
+
+
+@skuId = 1
+@templateId = 1
+
+### 创建优惠券；演示前修改有效期为当前时间附近
+POST {{baseUrl}}/admin/v1/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{"name":"满30减5","thresholdFen":3000,"discountFen":500,"total":100,"validFrom":"2026-11-11T00:00:00Z","validUntil":"2027-11-11T00:00:00Z"}
+
+### 领取，记下返回的个人券 id，不能把模板 id 直接当个人券 id
+POST {{baseUrl}}/api/v1/coupons/{{templateId}}/claim
+Authorization: Bearer {{memberToken}}
+
+### 我的券
+GET {{baseUrl}}/api/v1/coupons/mine
+Authorization: Bearer {{memberToken}}
+
+### 加入购物车
+POST {{baseUrl}}/api/v1/cart
+Authorization: Bearer {{memberToken}}
+Content-Type: application/json
+
+{"skuId":"{{skuId}}","quantity":2}
+
+### 查看购物车
+GET {{baseUrl}}/api/v1/cart
+Authorization: Bearer {{memberToken}}

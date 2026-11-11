@@ -1,8 +1,52 @@
 package com.minimall.trade.order.application;
-import com.minimall.trade.order.persistence.OrderRepository;import com.minimall.catalog.stock.application.*;import com.minimall.marketing.coupon.application.CouponService;import com.minimall.common.util.Checks;import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.*;import java.time.*;
-@Service public class OrderSettlementService {
- private final OrderRepository orders;private final InventoryService stock;private final CouponService coupons;private final Clock clock;
- public OrderSettlementService(OrderRepository orders,InventoryService stock,CouponService coupons,Clock clock){this.orders=orders;this.stock=stock;this.coupons=coupons;this.clock=clock;}
- @Transactional(propagation=Propagation.MANDATORY) public void paid(String no,Instant at){var order=orders.byNo(no,true);Checks.state("PENDING_PAYMENT".equals(order.text("status")),"订单不能支付");var lines=orders.items(no).stream().map(r->new StockLine(r.number("sku_id"),r.integer("quantity"))).toList();stock.commitReservation(no,lines);coupons.use(no);orders.transition(no,"PENDING_PAYMENT","PAID",at,"确认渠道收款");}
- @Transactional(propagation=Propagation.MANDATORY) public void close(String no,String reason){var order=orders.byNo(no,true);if("CLOSED".equals(order.text("status")))return;Checks.state("PENDING_PAYMENT".equals(order.text("status")),"订单不能关闭");stock.release(no,orders.items(no).stream().map(r->new StockLine(r.number("sku_id"),r.integer("quantity"))).toList());coupons.release(no,clock.instant());orders.transition(no,"PENDING_PAYMENT","CLOSED",clock.instant(),reason);}
+
+import com.minimall.catalog.stock.application.*;
+import com.minimall.common.util.Checks;
+import com.minimall.marketing.coupon.application.CouponService;
+import com.minimall.trade.order.persistence.OrderRepository;
+import java.time.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.*;
+
+@Service
+public class OrderSettlementService {
+  private final OrderRepository orders;
+  private final InventoryService stock;
+  private final CouponService coupons;
+  private final Clock clock;
+
+  public OrderSettlementService(
+      OrderRepository orders, InventoryService stock, CouponService coupons, Clock clock) {
+    this.orders = orders;
+    this.stock = stock;
+    this.coupons = coupons;
+    this.clock = clock;
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void paid(String no, Instant at) {
+    var order = orders.byNo(no, true);
+    Checks.state("PENDING_PAYMENT".equals(order.text("status")), "订单不能支付");
+    var lines =
+        orders.items(no).stream()
+            .map(r -> new StockLine(r.number("sku_id"), r.integer("quantity")))
+            .toList();
+    stock.commitReservation(no, lines);
+    coupons.use(no);
+    orders.transition(no, "PENDING_PAYMENT", "PAID", at, "确认渠道收款");
+  }
+
+  @Transactional(propagation = Propagation.MANDATORY)
+  public void close(String no, String reason) {
+    var order = orders.byNo(no, true);
+    if ("CLOSED".equals(order.text("status"))) return;
+    Checks.state("PENDING_PAYMENT".equals(order.text("status")), "订单不能关闭");
+    stock.release(
+        no,
+        orders.items(no).stream()
+            .map(r -> new StockLine(r.number("sku_id"), r.integer("quantity")))
+            .toList());
+    coupons.release(no, clock.instant());
+    orders.transition(no, "PENDING_PAYMENT", "CLOSED", clock.instant(), reason);
+  }
 }

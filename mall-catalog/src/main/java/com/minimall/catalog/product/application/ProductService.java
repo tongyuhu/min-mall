@@ -1,15 +1,167 @@
 package com.minimall.catalog.product.application;
-import com.minimall.catalog.product.persistence.ProductRepository;import com.minimall.catalog.product.infrastructure.ProductCache;import com.minimall.common.api.*;import com.minimall.common.util.Checks;
-import org.springframework.stereotype.Service;import org.springframework.transaction.annotation.Transactional;import org.springframework.context.ApplicationEventPublisher;import java.util.*;
-@Service public class ProductService {
- private final ProductRepository repository;private final ProductCache cache;private final ApplicationEventPublisher events;
- public ProductService(ProductRepository repository,ProductCache cache,ApplicationEventPublisher events){this.repository=repository;this.cache=cache;this.events=events;}
- @Transactional public long save(ProductCommand c){if(c==null||c.skus()==null||c.skus().isEmpty()||c.skus().size()>100)throw BusinessException.bad("商品需要1至100个SKU");String title=Checks.text(c.title(),1,200,"商品名称");var images=c.imageUrls()==null?List.<String>of():c.imageUrls();if(images.size()>10)throw BusinessException.bad("图片最多10张");for(String image:images){Checks.text(image,1,2048,"图片URL");var uri=java.net.URI.create(image);if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null)throw BusinessException.bad("图片必须为HTTP地址");}repository.validateReferences(c.categoryId(),c.brandId());c=new ProductCommand(c.spuId(),c.categoryId(),c.brandId(),title,List.copyOf(images),c.skus());long id;if(c.spuId()==null)id=repository.createSpu(c);else{id=c.spuId();repository.spu(id,true);repository.updateSpu(id,c);}var before=repository.skus(id);var retained=new HashSet<Long>();var keys=new HashSet<String>();for(var input:c.skus()){
-  if(input==null||input.priceFen()<0||input.priceFen()>100000000L||input.specificationValueIds()==null||input.specificationValueIds().size()>16)throw BusinessException.bad("SKU规格或价格不合法");var values=input.specificationValueIds().stream().sorted().toList();if(new HashSet<>(values).size()!=values.size())throw BusinessException.bad("规格值重复");String key=values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));if(!keys.add(key))throw BusinessException.conflict("SKU规格组合重复");var names=new ArrayList<String>();var specifications=new HashSet<Long>();for(long value:values){var v=repository.specificationValue(value);if(!specifications.add(v.number("specification_id")))throw BusinessException.bad("一个SKU不能选择同规格的多个值");names.add(v.text("specification_name")+":"+v.text("name"));}String specs=names.isEmpty()?"默认规格":String.join(" / ",names);long sku;if(input.skuId()==null){sku=repository.createSku(id,key,specs,input.priceFen());values.forEach(v->repository.linkValue(sku,v));repository.priceLog(sku,null,input.priceFen());events.publishEvent(new SkuCreatedEvent(sku));}else{sku=input.skuId();var previous=repository.lockSku(sku);if(previous.number("spu_id")!=id||!Objects.equals(previous.text("spec_key"),key))throw BusinessException.conflict("已有SKU不能更改归属或规格组合");repository.updateSku(sku,specs,input.priceFen());if(previous.number("price_fen")!=input.priceFen())repository.priceLog(sku,previous.number("price_fen"),input.priceFen());}if(!retained.add(sku))throw BusinessException.bad("SKU重复");}
-  before.stream().map(r->r.number("id")).filter(s->!retained.contains(s)).forEach(repository::disableSku);repository.images(id,images);cache.invalidate(id);return id;}
- @Transactional public void setOnSale(long id,boolean value){repository.spu(id,true);if(value&&repository.skus(id).stream().noneMatch(s->s.flag("enabled")))throw BusinessException.conflict("没有可售SKU");repository.onSale(id,value);cache.invalidate(id);}
- public ProductView detail(long id){return cache.get(id,()->{var row=repository.spu(id,false);if(!row.flag("on_sale"))throw BusinessException.missing();return view(id);});}
- public ProductView adminDetail(long id){return view(id);}
- private ProductView view(long id){var row=repository.spu(id,false);return new ProductView(Long.toString(id),Long.toString(row.number("category_id")),row.optionalNumber("brand_id")==null?null:Long.toString(row.number("brand_id")),row.text("title"),row.flag("on_sale"),row.number("sale_version"),repository.images(id),repository.skus(id).stream().map(s->new SkuView(Long.toString(s.number("id")),s.text("specs"),s.number("price_fen"),s.flag("enabled"))).toList());}
- public PageResult<ProductView> search(ProductQuery query,PageQuery page){if(query.keyword()!=null&&query.keyword().length()>64)throw BusinessException.bad("关键词过长");if(query.minPriceFen()!=null&&query.minPriceFen()<0||query.maxPriceFen()!=null&&query.maxPriceFen()<0||query.minPriceFen()!=null&&query.maxPriceFen()!=null&&query.minPriceFen()>query.maxPriceFen())throw BusinessException.bad("价格范围不合法");return new PageResult<>(repository.search(query,page).stream().map(r->view(r.number("id"))).toList(),repository.count(query),page.page(),page.size());}
+
+import com.minimall.catalog.product.infrastructure.ProductCache;
+import com.minimall.catalog.product.persistence.ProductRepository;
+import com.minimall.common.api.*;
+import com.minimall.common.util.Checks;
+import java.util.*;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class ProductService {
+  private final ProductRepository repository;
+  private final ProductCache cache;
+  private final ApplicationEventPublisher events;
+
+  public ProductService(
+      ProductRepository repository, ProductCache cache, ApplicationEventPublisher events) {
+    this.repository = repository;
+    this.cache = cache;
+    this.events = events;
+  }
+
+  @Transactional
+  public long save(ProductCommand c) {
+    if (c == null || c.skus() == null || c.skus().isEmpty() || c.skus().size() > 100)
+      throw BusinessException.bad("商品需要1至100个SKU");
+    String title = Checks.text(c.title(), 1, 200, "商品名称");
+    var images = c.imageUrls() == null ? List.<String>of() : c.imageUrls();
+    if (images.size() > 10) throw BusinessException.bad("图片最多10张");
+    for (String image : images) {
+      Checks.text(image, 1, 2048, "图片URL");
+      var uri = java.net.URI.create(image);
+      if (!Set.of("http", "https").contains(uri.getScheme()) || uri.getHost() == null)
+        throw BusinessException.bad("图片必须为HTTP地址");
+    }
+    repository.validateReferences(c.categoryId(), c.brandId());
+    c =
+        new ProductCommand(
+            c.spuId(), c.categoryId(), c.brandId(), title, List.copyOf(images), c.skus());
+    long id;
+    if (c.spuId() == null) id = repository.createSpu(c);
+    else {
+      id = c.spuId();
+      repository.spu(id, true);
+      repository.updateSpu(id, c);
+    }
+    var before = repository.skus(id);
+    var retained = new HashSet<Long>();
+    var keys = new HashSet<String>();
+    for (var input : c.skus()) {
+      if (input == null
+          || input.priceFen() < 0
+          || input.priceFen() > 100000000L
+          || input.specificationValueIds() == null
+          || input.specificationValueIds().size() > 16
+          || input.specificationValueIds().stream().anyMatch(Objects::isNull))
+        throw BusinessException.bad("SKU规格或价格不合法");
+      var values = input.specificationValueIds().stream().sorted().toList();
+      if (new HashSet<>(values).size() != values.size()) throw BusinessException.bad("规格值重复");
+      String key =
+          values.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+      if (!keys.add(key)) throw BusinessException.conflict("SKU规格组合重复");
+      var names = new ArrayList<String>();
+      var specifications = new HashSet<Long>();
+      for (long value : values) {
+        var v = repository.specificationValue(value);
+        if (!specifications.add(v.number("specification_id")))
+          throw BusinessException.bad("一个SKU不能选择同规格的多个值");
+        names.add(v.text("specification_name") + ":" + v.text("name"));
+      }
+      String specs = names.isEmpty() ? "默认规格" : String.join(" / ", names);
+      long sku;
+      if (input.skuId() == null) {
+        sku = repository.createSku(id, key, specs, input.priceFen());
+        values.forEach(v -> repository.linkValue(sku, v));
+        repository.priceLog(sku, null, input.priceFen());
+        events.publishEvent(new SkuCreatedEvent(sku));
+      } else {
+        sku = input.skuId();
+        var previous = repository.lockSku(sku);
+        if (previous.number("spu_id") != id || !Objects.equals(previous.text("spec_key"), key))
+          throw BusinessException.conflict("已有SKU不能更改归属或规格组合");
+        repository.updateSku(sku, specs, input.priceFen());
+        if (previous.number("price_fen") != input.priceFen())
+          repository.priceLog(sku, previous.number("price_fen"), input.priceFen());
+      }
+      if (!retained.add(sku)) throw BusinessException.bad("SKU重复");
+    }
+    before.stream()
+        .map(r -> r.number("id"))
+        .filter(s -> !retained.contains(s))
+        .forEach(repository::disableSku);
+    repository.images(id, images);
+    cache.invalidate(id);
+    return id;
+  }
+
+  @Transactional
+  public void setOnSale(long id, boolean value) {
+    repository.spu(id, true);
+    if (value && repository.skus(id).stream().noneMatch(s -> s.flag("enabled")))
+      throw BusinessException.conflict("没有可售SKU");
+    repository.onSale(id, value);
+    cache.invalidate(id);
+  }
+
+  public ProductView detail(long id) {
+    return cache.get(
+        id,
+        () -> {
+          var row = repository.spu(id, false);
+          if (!row.flag("on_sale")) throw BusinessException.missing();
+          return view(id);
+        });
+  }
+
+  public ProductView adminDetail(long id) {
+    return view(id);
+  }
+
+  private ProductView view(long id) {
+    var row = repository.spu(id, false);
+    return new ProductView(
+        Long.toString(id),
+        Long.toString(row.number("category_id")),
+        row.optionalNumber("brand_id") == null ? null : Long.toString(row.number("brand_id")),
+        row.text("title"),
+        row.flag("on_sale"),
+        row.number("sale_version"),
+        repository.images(id),
+        repository.skus(id).stream()
+            .map(
+                s ->
+                    new SkuView(
+                        Long.toString(s.number("id")),
+                        s.text("specs"),
+                        s.number("price_fen"),
+                        s.flag("enabled")))
+            .toList());
+  }
+
+  public PageResult<ProductView> search(ProductQuery query, PageQuery page) {
+    if (query.keyword() != null && query.keyword().length() > 64)
+      throw BusinessException.bad("关键词过长");
+    if (query.minPriceFen() != null && query.minPriceFen() < 0
+        || query.maxPriceFen() != null && query.maxPriceFen() < 0
+        || query.minPriceFen() != null
+            && query.maxPriceFen() != null
+            && query.minPriceFen() > query.maxPriceFen()) throw BusinessException.bad("价格范围不合法");
+    return new PageResult<>(
+        repository.search(query, page).stream().map(r -> view(r.number("id"))).toList(),
+        repository.count(query),
+        page.page(),
+        page.size());
+  }
+
+  public PageResult<ProductView> adminSearch(PageQuery page) {
+    var query = new ProductQuery(null, null, null, null, null);
+    return new PageResult<>(
+        repository.search(query, page, true).stream().map(r -> view(r.number("id"))).toList(),
+        repository.count(query, true),
+        page.page(),
+        page.size());
+  }
 }

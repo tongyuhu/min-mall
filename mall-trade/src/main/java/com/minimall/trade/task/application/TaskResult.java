@@ -1,2 +1,17 @@
-package com.minimall.trade.task.application;import java.time.Instant;
-public record TaskResult(TaskDisposition disposition,Instant nextRunAt,String reason){public static TaskResult done(){return new TaskResult(TaskDisposition.DONE,null,null);}public static TaskResult waitUntil(Instant at){return new TaskResult(TaskDisposition.WAIT,at,null);}public static TaskResult retry(String reason){return new TaskResult(TaskDisposition.RETRY,null,reason);}}
+package com.minimall.trade.task.application;
+
+import java.time.Instant;
+
+public record TaskResult(TaskDisposition disposition, Instant nextRunAt, String reason) {
+  public static TaskResult done() {
+    return new TaskResult(TaskDisposition.DONE, null, null);
+  }
+
+  public static TaskResult waitUntil(Instant at) {
+    return new TaskResult(TaskDisposition.WAIT, at, null);
+  }
+
+  public static TaskResult retry(String reason) {
+    return new TaskResult(TaskDisposition.RETRY, null, reason);
+  }
+}
