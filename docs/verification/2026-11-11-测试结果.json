@@ -1,0 +1,292 @@
+{
+  "date": "2026-11-11",
+  "command": ".\\mvnw.cmd -B -Pintegration verify",
+  "result": "BUILD SUCCESS",
+  "java": "21.0.2",
+  "testClasses": 31,
+  "tests": 59.0,
+  "failures": 0.0,
+  "errors": 0.0,
+  "skipped": 0.0,
+  "cases": [
+    {
+      "class": "com.minimall.common.api.PageQueryTest",
+      "kind": "单元",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.061
+    },
+    {
+      "class": "com.minimall.trade.checkout.PriceCalculatorTest",
+      "kind": "单元",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.087
+    },
+    {
+      "class": "com.minimall.app.ChannelConfigurationTest",
+      "kind": "单元",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.43
+    },
+    {
+      "class": "com.minimall.app.ModuleBoundaryTest",
+      "kind": "单元",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.04
+    },
+    {
+      "class": "com.minimall.app.AdminOperationsIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 19.971
+    },
+    {
+      "class": "com.minimall.app.AdminPermissionIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.596
+    },
+    {
+      "class": "com.minimall.app.AfterSaleIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.285
+    },
+    {
+      "class": "com.minimall.app.ApiContractIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.018
+    },
+    {
+      "class": "com.minimall.app.BootstrapIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.152
+    },
+    {
+      "class": "com.minimall.app.CartIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.1
+    },
+    {
+      "class": "com.minimall.app.CheckoutIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.187
+    },
+    {
+      "class": "com.minimall.app.CouponLifecycleIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.065
+    },
+    {
+      "class": "com.minimall.app.CurrentReadIT",
+      "kind": "集成",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.537
+    },
+    {
+      "class": "com.minimall.app.ExpiryScanIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.179
+    },
+    {
+      "class": "com.minimall.app.FailureRecoveryIT",
+      "kind": "集成",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 6.367
+    },
+    {
+      "class": "com.minimall.app.HttpBoundaryIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.329
+    },
+    {
+      "class": "com.minimall.app.IntegrationTaskIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.05
+    },
+    {
+      "class": "com.minimall.app.InventoryConcurrencyIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.226
+    },
+    {
+      "class": "com.minimall.app.MallJourneyIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.66
+    },
+    {
+      "class": "com.minimall.app.MemberAddressIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.485
+    },
+    {
+      "class": "com.minimall.app.MockPaymentGatewayIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.045
+    },
+    {
+      "class": "com.minimall.app.OrderCloseRaceIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.295
+    },
+    {
+      "class": "com.minimall.app.PaymentNotificationIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.164
+    },
+    {
+      "class": "com.minimall.app.PaymentRecoveryIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.443
+    },
+    {
+      "class": "com.minimall.app.PersistenceTimeIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.008
+    },
+    {
+      "class": "com.minimall.app.PlaceOrderIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.287
+    },
+    {
+      "class": "com.minimall.app.ProductCatalogIT",
+      "kind": "集成",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.114
+    },
+    {
+      "class": "com.minimall.app.RefundRecoveryIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.585
+    },
+    {
+      "class": "com.minimall.app.SessionSecurityIT",
+      "kind": "集成",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.363
+    },
+    {
+      "class": "com.minimall.app.ShippingIT",
+      "kind": "集成",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.308
+    },
+    {
+      "class": "com.minimall.app.TradeConcurrencyIT",
+      "kind": "集成",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.736
+    }
+  ]
+}

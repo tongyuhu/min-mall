@@ -8,7 +8,7 @@
 
 **技术栈：**Java 21、Spring Boot 4、Spring MVC、Spring Security、MyBatis-Plus、MySQL、Redis、Flyway、springdoc、JUnit、Testcontainers。
 
-**设计依据：**[已批准设计](../specs/2026-11-11-mini-mall-design.md)，用户于 2026-11-11 批准设计和默认范围。用户已批准并选择当前会话按顺序实现。任务1–20的源码及资料已准备，所有编译和运行验证仍未执行；实际记录见 docs/verification/验收记录.md。下方复选框保留原验收要求，未获运行证据的复合步骤不勾选。
+**设计依据：**[已批准设计](../specs/2026-11-11-mini-mall-design.md)，用户于 2026-11-11 批准设计和默认范围。用户已批准并选择当前会话按顺序实现。任务1–20源码及资料已交付；用户后续明确授权运行，完整构建、59个测试、14个迁移、HTTP smoke及进程重启退款恢复均通过。实际证据见 docs/verification/验收记录.md。下方保留原任务分解；未逐项执行原始RED阶段的复合步骤不倒填完成，避免把后补全套测试伪装为逐任务TDD。
 
 ## 全局约束
 
@@ -363,7 +363,7 @@ PaymentRequest 含 paymentNo、orderNo、amountFen、currency、expiresAt；Paym
 - [ ] 获授权后运行 `I(MallJourneyIT)`、`I(FailureRecoveryIT)` 记录发现的失败；修复对应业务文件，不把失败断言改弱。
 - [ ] 编写 HTTP 文件与 smoke.ps1；脚本只访问参数指定的本地实例，不自动启动容器、不编译、不删除数据；演示账号使用唯一前缀和环境密码；故障时输出业务号便于排查，不能打印秘密。
 - [ ] 完成 README 的 PowerShell 启动/停止/端口/配置/迁移/健康检查、可选容器化和故障排查；阅读路线对应 1–20 任务，说明业务问题、关键类、接口示例和取舍。写清取消请求与退款是异步的，如何轮询终态。
-- [ ] 获授权后执行 `.\mvnw.cmd -Pintegration verify`，目标为所有单元/集成测试通过且无意外跳过；另获运行授权后依 README 启动应用并执行 smoke.ps1；无授权时只检查源文件与文档，并逐项保留“未执行”。
+- [x] 获授权后执行 `.\mvnw.cmd -Pintegration verify`，目标为所有单元/集成测试通过且无意外跳过；另获运行授权后依 README 启动应用并执行 smoke.ps1；无授权时只检查源文件与文档，并逐项保留“未执行”。
 - [ ] 记录版本、命令、目标测试数、报告路径、结果和未验证事项；静态检查并提交 `docs: 完成商城演示学习资料与验收记录`。
 
 ## 阶段交付与设计覆盖自查

@@ -35,4 +35,4 @@ git diff --check
 if ($LASTEXITCODE -ne 0) { throw 'Git空白检查失败' }
 git diff --cached --check
 if ($LASTEXITCODE -ne 0) { throw 'Git暂存区空白检查失败' }
-Write-Output "静态检查通过：7个模块，$($sources.Count)个Java源文件；未编译或运行测试。"
+Write-Output "静态检查通过：7个模块，$($sources.Count)个Java源文件；此脚本不执行编译或测试。"

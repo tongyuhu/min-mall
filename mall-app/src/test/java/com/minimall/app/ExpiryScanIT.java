@@ -35,11 +35,11 @@ class ExpiryScanIT extends IntegrationTestSupport {
     Instant nextExpiry = firstExpiry.plusSeconds(1);
     jdbc.update(
         "UPDATE trade_order SET expires_at=?,close_requested=1 WHERE order_no=?",
-        java.sql.Timestamp.from(firstExpiry),
+        java.time.LocalDateTime.ofInstant(firstExpiry, java.time.ZoneOffset.UTC),
         first.orderNo());
     jdbc.update(
         "UPDATE trade_order SET expires_at=? WHERE order_no=?",
-        java.sql.Timestamp.from(nextExpiry),
+        java.time.LocalDateTime.ofInstant(nextExpiry, java.time.ZoneOffset.UTC),
         next.orderNo());
     assertEquals(1, closer.requestExpired(nextExpiry.plusSeconds(1), 1));
     assertEquals("CLOSED", orders.detail(buyer.memberId(), next.orderNo()).status());

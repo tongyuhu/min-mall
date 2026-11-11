@@ -162,7 +162,8 @@ class PaymentRecoveryIT extends IntegrationTestSupport {
         assertTrue(entered.await(10, TimeUnit.SECONDS));
         jdbc.update(
             "UPDATE integration_task SET lease_until=? WHERE id=?",
-            java.sql.Timestamp.from(clock.instant().minusSeconds(1)),
+            java.time.LocalDateTime.ofInstant(
+                clock.instant().minusSeconds(1), java.time.ZoneOffset.UTC),
             id);
         var replacement =
             tasks.claim(Set.of(type), clock.instant(), 1, Duration.ofSeconds(60)).getFirst();

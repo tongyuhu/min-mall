@@ -32,11 +32,13 @@ class FailureRecoveryIT extends IntegrationTestSupport {
     String type = "TEST_" + UUID.randomUUID();
     var tx = new TransactionTemplate(manager);
     long id = tx.execute(s -> tasks.enqueue(type, "restart", "{}"));
-    assertEquals(id, tx.execute(s -> tasks.enqueue(type, "restart", "{}")));
+    long repeatedId = tx.execute(s -> tasks.enqueue(type, "restart", "{}"));
+    assertEquals(id, repeatedId);
     var old = tasks.claim(Set.of(type), clock.instant(), 1, Duration.ofSeconds(60)).getFirst();
     jdbc.update(
         "UPDATE integration_task SET lease_until=? WHERE id=?",
-        java.sql.Timestamp.from(clock.instant().minusSeconds(1)),
+        java.time.LocalDateTime.ofInstant(
+            clock.instant().minusSeconds(1), java.time.ZoneOffset.UTC),
         id);
     var calls = new AtomicInteger();
     TaskHandler handler =
@@ -64,7 +66,8 @@ class FailureRecoveryIT extends IntegrationTestSupport {
         new TransactionTemplate(manager).execute(s -> tasks.enqueue(type, "refund-retry", "{}"));
     jdbc.update(
         "UPDATE integration_task SET status='MANUAL',wait_started_at=? WHERE id=?",
-        java.sql.Timestamp.from(clock.instant().minus(Duration.ofDays(2))),
+        java.time.LocalDateTime.ofInstant(
+            clock.instant().minus(Duration.ofDays(2)), java.time.ZoneOffset.UTC),
         id);
     tasks.retryManually(id);
     var lease = tasks.claim(Set.of(type), clock.instant(), 1, Duration.ofSeconds(60)).getFirst();

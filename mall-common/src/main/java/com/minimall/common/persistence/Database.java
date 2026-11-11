@@ -1,8 +1,10 @@
 package com.minimall.common.persistence;
 
 import com.minimall.common.api.BusinessException;
-import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +21,15 @@ public class Database {
     result.put("sql", sql);
     result.put(
         "args",
-        Arrays.stream(args).map(v -> v instanceof Instant i ? Timestamp.from(i) : v).toArray());
+        // DATETIME 没有时区；显式写 UTC 墙上时间，避免驱动使用 JVM 默认时区。
+        // 数据库精度为微秒，先截断而不是让 MySQL 四舍五入，保证事件重放一致。
+        Arrays.stream(args)
+            .map(
+                v ->
+                    v instanceof Instant i
+                        ? LocalDateTime.ofInstant(i.truncatedTo(ChronoUnit.MICROS), ZoneOffset.UTC)
+                        : v)
+            .toArray());
     return result;
   }
 

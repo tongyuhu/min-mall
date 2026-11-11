@@ -2,7 +2,7 @@
 
 用于系统学习的单商家自营实物商城。Java 21、Spring Boot 4、多模块单体，MyBatis-Plus 持久化，MySQL 保存交易事实，Redis 保存登录会话与商品详情缓存。支付、退款和物流使用本地模拟渠道，真实渠道通过 `PaymentGateway`、`ShippingGateway` 接入。
 
-**交付状态：业务源码、测试源码、数据库迁移和演示资料已编写。尚未执行项目编译、测试、容器启动或完整 HTTP 演示，不能据此认定运行验收通过。** 详见 [验收记录](docs/verification/验收记录.md)。
+**交付状态：2026-11-11 已完成本地运行验收。完整构建成功，59 个测试全部通过（0 失败、0 错误、0 跳过），14 个数据库迁移执行成功，完整 HTTP 演示和进程重启后的退款恢复均通过。** 详见 [验收记录与改动步骤](docs/verification/验收记录.md)。
 
 ## 功能与边界
 
@@ -56,7 +56,7 @@ Copy-Item .env.example .env
 
 ## 启动与停止
 
-以下是需要实际运行时执行的命令；本次交付没有执行这些命令。
+以下命令已在本机运行验收。已有 `.env` 时保留原文件，不要重新复制覆盖；更改初始化密码不会重置已创建账号。
 
 ```powershell
 # 只启动本项目 MySQL 和 Redis，保留现有其他项目服务。
@@ -66,7 +66,7 @@ docker compose ps
 # 构建会编译项目；skipTests 仅跳过测试执行。
 .\mvnw.cmd -pl mall-app -am package -DskipTests
 if ($LASTEXITCODE -ne 0) { throw '构建失败，先修复再启动' }
-java -jar .\mall-app\target\mall-app-1.0.0-SNAPSHOT.jar --spring.profiles.active=local
+java -Dfile.encoding=UTF-8 -jar .\mall-app\target\mall-app-1.0.0-SNAPSHOT.jar --spring.profiles.active=local --server.address=127.0.0.1
 ```
 
 首次启动 Flyway 顺序执行 `mall-app/src/main/resources/db/migration` 中的迁移。应用运行时，在另一个已导入配置的 PowerShell 中检查：
@@ -78,7 +78,7 @@ Invoke-RestMethod http://127.0.0.1:18080/actuator/health
 
 Swagger UI：`http://127.0.0.1:18080/swagger-ui/index.html`。接口分买家、管理、渠道三组；用 Bearer Token 调用业务 API，开发接口使用 `X-Dev-Key`。请求示例见 [HTTP 目录](docs/http)。`smoke.ps1` 每次创建唯一买家、商品和券，执行购买→付款→发货→收货→退货→退款，断言金额、库存、券和终态。它仅访问本机指定实例，不编译、不启动容器、不删除演示数据，也不打印密码或令牌。
 
-本地 Java 进程用 Ctrl+C 停止。基础服务可执行：
+本地前台 Java 进程用 Ctrl+C 停止。**Windows 下重新打包前先停止正在使用该 JAR 的应用**，否则 repackage 可能无法重命名文件。本次验收启动的后台进程编号记录在 `.superpowers/sdd/2026-11-11-mini-mall-implementation/local-app.pid`；停止前先核对该 PID 的命令行确实指向本项目。基础服务可执行：
 
 ```powershell
 docker compose stop
@@ -94,14 +94,16 @@ docker compose stop
 # 不编译、不启动服务
 .\scripts\check-static.ps1
 
-# 以下命令会编译并运行测试，需要运行阶段授权
+# 以下命令会编译并运行测试；本次已获得授权并完成全套 verify
 .\mvnw.cmd test
 .\mvnw.cmd -Pintegration verify
 # 只执行一个集成用例；仍会编译相关模块
-.\mvnw.cmd -pl mall-app -am -Pintegration -Dit.test=MallJourneyIT -Dfailsafe.failIfNoSpecifiedTests=false verify
+.\mvnw.cmd -pl mall-app -am -Pintegration '-Dit.test=MallJourneyIT' '-Dfailsafe.failIfNoSpecifiedTests=false' verify
 ```
 
 单元测试以 `Test` 结尾，集成测试以 `IT` 结尾；只执行 `test` 不会运行 IT。Failsafe 报告在 `mall-app/target/failsafe-reports`，Surefire 报告在各模块 `target/surefire-reports`。集成测试使用独立 Testcontainers MySQL/Redis、随机 HTTP 端口及独立数据，不连接 `.env` 开发库。Redis 故障用例只暂停自己的测试容器，并在 finally 中恢复；不启用 JUnit 并行执行。
+
+PowerShell 中带点号的 Maven `-D` 参数要加引号，避免被拆成生命周期参数。Maven JVM 的 UTF-8 编码已固定在 `.mvn/jvm.config`。MySQL DATETIME(6) 写入明确使用 UTC 的 LocalDateTime，并先截断到微秒，避免本机时区和数据库四舍五入影响交易期限或事件去重。
 
 ## 异步流程与故障排查
 

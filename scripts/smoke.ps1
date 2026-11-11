@@ -77,7 +77,9 @@ try {
     $refund=Api GET "/api/v1/refunds/$($finished.refundNo)" $null $memberHeaders
     $final=Api GET "/api/v1/orders/$script:orderNo" $null $memberHeaders
     $stock=Api GET "/admin/v1/stock/$sku" $null $adminHeaders
-    $used=@(Api GET '/api/v1/coupons/mine' $null $memberHeaders | Where-Object id -eq $coupon.id)[0]
+    # Invoke-RestMethod 的 JSON 数组可能作为单个管道对象输出，先接收再枚举条目。
+    $mine = Api GET '/api/v1/coupons/mine' $null $memberHeaders
+    $used = @($mine | Where-Object { $_.id -eq $coupon.id })[0]
     Assert-Equal $final.status 'REFUNDED' '订单终态'
     Assert-Equal $refund.status 'SUCCEEDED' '退款终态'
     Assert-Equal $refund.amountFen $quote.payableFen '退款金额'
