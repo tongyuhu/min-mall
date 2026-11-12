@@ -41,9 +41,14 @@ public class RoleService {
 
   public List<RoleView> list() {
     return repository.roles().stream()
-        .map(r -> new RoleView(Long.toString(r.number("id")), r.text("name")))
+        .map(
+            r ->
+                new RoleView(
+                    Long.toString(r.number("id")),
+                    r.text("name"),
+                    repository.rolePermissions(r.number("id"))))
         .toList();
   }
 
-  public record RoleView(String id, String name) {}
+  public record RoleView(String id, String name, Set<String> permissions) {}
 }

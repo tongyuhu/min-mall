@@ -99,6 +99,24 @@ public class AdminRepository {
     return db.rows("SELECT id,name FROM admin_role ORDER BY id");
   }
 
+  public List<String> roleIds(long id) {
+    return db
+        .rows("SELECT role_id FROM admin_account_role WHERE account_id=? ORDER BY role_id", id)
+        .stream()
+        .map(r -> Long.toString(r.number("role_id")))
+        .toList();
+  }
+
+  public Set<String> rolePermissions(long id) {
+    var result = new HashSet<String>();
+    db.rows(
+            "SELECT p.code FROM admin_permission p JOIN admin_role_permission rp ON"
+                + " rp.permission_id=p.id WHERE rp.role_id=?",
+            id)
+        .forEach(r -> result.add(r.text("code")));
+    return Set.copyOf(result);
+  }
+
   public List<DbRow> accounts() {
     return db.rows("SELECT id,username,enabled FROM admin_account ORDER BY id LIMIT 100");
   }

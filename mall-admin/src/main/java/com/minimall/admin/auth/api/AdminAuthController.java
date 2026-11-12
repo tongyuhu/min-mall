@@ -23,6 +23,14 @@ public class AdminAuthController {
 
   public record PasswordChange(String oldPassword, String newPassword) {}
 
+  public record Profile(String id, String username, java.util.Set<String> permissions) {}
+
+  @GetMapping("/me")
+  public Profile me() {
+    long id = actor.require(ActorType.ADMIN);
+    return new Profile(Long.toString(id), accounts.username(id), actor.identity().permissions());
+  }
+
   @PostMapping("/login")
   public SessionView login(@RequestBody Credentials input, HttpServletRequest request) {
     return sessions.login(

@@ -74,9 +74,17 @@ public class AdminAccountService {
     return repository.accounts().stream()
         .map(
             r ->
-                new AdminView(Long.toString(r.number("id")), r.text("username"), r.flag("enabled")))
+                new AdminView(
+                    Long.toString(r.number("id")),
+                    r.text("username"),
+                    r.flag("enabled"),
+                    repository.roleIds(r.number("id"))))
         .toList();
   }
 
-  public record AdminView(String id, String username, boolean enabled) {}
+  public String username(long id) {
+    return repository.find(id).orElseThrow(BusinessException::missing).text("username");
+  }
+
+  public record AdminView(String id, String username, boolean enabled, List<String> roleIds) {}
 }

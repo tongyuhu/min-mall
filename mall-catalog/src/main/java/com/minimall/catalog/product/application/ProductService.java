@@ -15,6 +15,28 @@ public class ProductService {
   private final ProductCache cache;
   private final ApplicationEventPublisher events;
 
+  public record EditorSku(
+      String skuId, List<String> specificationValueIds, long priceFen, boolean enabled) {}
+
+  public record EditorView(ProductView product, List<EditorSku> skus) {}
+
+  public EditorView editor(long id) {
+    var product = adminDetail(id);
+    var skus =
+        repository.skus(id).stream()
+            .map(
+                r ->
+                    new EditorSku(
+                        Long.toString(r.number("id")),
+                        r.text("spec_key").isBlank()
+                            ? List.of()
+                            : List.of(r.text("spec_key").split(",")),
+                        r.number("price_fen"),
+                        r.flag("enabled")))
+            .toList();
+    return new EditorView(product, skus);
+  }
+
   public ProductService(
       ProductRepository repository, ProductCache cache, ApplicationEventPublisher events) {
     this.repository = repository;

@@ -1,0 +1,80 @@
+import { test, expect } from '@playwright/test';
+
+test('访客浏览、移动布局与登录保护', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /把日子，\s*过成喜欢的样子。/ })).toBeVisible();
+  await page.getByRole('link', { name: '全部好物', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: '发现日常好物' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.goto('/cart');
+  await expect(page.getByRole('heading', { name: '欢迎回到小满' })).toBeVisible();
+});
+
+test('真实买家注册到下单支付，管理发货和售后退款', async ({ page, browser }) => {
+  test.skip(!process.env.MALL_ADMIN_PASSWORD, '真实联调需要通过 import-env.ps1 导入管理员密码');
+  const username = `web${Date.now()}`;
+  const password = `Web-${Date.now()}-learn`;
+  await page.goto('/register');
+  await page.getByLabel('用户名', { exact: true }).fill(username);
+  await page.getByLabel('密码', { exact: true }).fill(password);
+  await page.getByRole('button', { name: '注册并登录' }).click();
+  await expect(page).toHaveURL('/');
+  await page.goto('/account/addresses');
+  await page.getByLabel('收货人').fill('前端验收');
+  await page.getByLabel('手机号码').fill('13800000000');
+  await page.getByLabel('省份').fill('浙江省');
+  await page.getByLabel('城市').fill('杭州市');
+  await page.getByLabel('区县').fill('西湖区');
+  await page.getByLabel('详细地址').fill('前端学习路 21 号');
+  await page.getByRole('button', { name: '保存地址' }).click();
+  await expect(page.getByText('前端学习路 21 号', { exact: false }).first()).toBeVisible();
+  await page.goto('/products');
+  await page.locator('.product-card').first().click();
+  await page.getByRole('button', { name: '加入购物车' }).click();
+  await expect(page.getByText('已加入购物车')).toBeVisible();
+  await page.goto('/cart');
+  await page.getByRole('button', { name: '去结算' }).click();
+  await page.getByRole('button', { name: '确认金额' }).click();
+  await page.getByRole('button', { name: '提交订单' }).click();
+  await expect(page).toHaveURL(/\/orders\/O/);
+  const orderNo = page.url().split('/').pop()!;
+  await page.getByRole('button', { name: '去付款', exact: true }).click();
+  await page.getByRole('button', { name: '模拟支付成功', exact: true }).click({ timeout: 30000 });
+  await expect(page.getByText('支付成功，订单已更新')).toBeVisible({ timeout: 45000 });
+  const admin = await browser.newPage();
+  await admin.goto('/admin/login');
+  await admin.getByLabel('用户名', { exact: true }).fill('admin');
+  await admin.getByLabel('密码', { exact: true }).fill(process.env.MALL_ADMIN_PASSWORD!);
+  await admin.getByRole('button', { name: '登录管理后台' }).click();
+  await expect(admin).toHaveURL('/admin');
+  await admin.goto(`/admin/orders/${orderNo}`);
+  await admin.getByLabel('承运商').fill('本地物流');
+  await admin.getByLabel('运单号').fill(`WEB${Date.now()}`);
+  await admin.getByRole('button', { name: '确认发货', exact: true }).click();
+  await expect(admin.getByText('发货已受理')).toBeVisible();
+  await page.reload();
+  page.on('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '确认收货', exact: true }).click();
+  await expect(page.getByText('已完成', { exact: true }).first()).toBeVisible();
+  await page.getByLabel('售后原因').fill('端到端验收退货');
+  await page.getByRole('button', { name: '申请售后', exact: true }).click();
+  await page.goto('/after-sales');
+  await expect(page.getByText('待审核', { exact: true }).first()).toBeVisible();
+  await admin.goto('/admin/after-sales');
+  admin.on('dialog', (dialog) => dialog.accept());
+  await admin.getByRole('button', { name: '同意申请', exact: true }).first().click();
+  await page.reload();
+  await page.getByLabel('退货承运商').fill('本地物流');
+  await page.getByLabel('退货运单号').fill(`RETURN${Date.now()}`);
+  await page.getByRole('button', { name: '提交退货物流' }).click();
+  await admin.reload();
+  await admin.getByRole('button', { name: '确认验收', exact: true }).first().click();
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByText('已完成', { exact: true }).first()).toBeVisible();
+  }).toPass({ timeout: 45000 });
+  await admin.close();
+});

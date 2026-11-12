@@ -37,6 +37,11 @@ public class ProductAdminController {
     return products.adminDetail(id);
   }
 
+  @GetMapping("/products/{id}/editor")
+  public ProductService.EditorView editor(@PathVariable long id) {
+    return products.editor(id);
+  }
+
   @PutMapping("/products/{id}/sale")
   public void onSale(@PathVariable long id, @RequestBody SaleInput input) {
     products.setOnSale(id, input.onSale());
